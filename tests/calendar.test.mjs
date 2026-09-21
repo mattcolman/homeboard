@@ -44,6 +44,7 @@ const {
   parseIcsEvents,
   safeAppleUrl,
   startOfHomeDay,
+  syncShoppingItems,
 } = calendarModule;
 const { calendarEventsForRange } = await import(
   `../.wrangler/calendar-tests/local.mjs?${Date.now()}`
@@ -220,6 +221,139 @@ test('connection discovery, sync and cached snapshot share one contract', async 
     const snapshot = await calendarSnapshot('calendar-test-owner');
     assert.equal(snapshot.data.calendarConnected, true);
     assert.ok(snapshot.data.calendarEvents.length >= 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('reminder lists are discovered and shopping items sync both ways', async () => {
+  const owner = 'reminder-test-owner';
+  const listHref = 'https://p01-caldav.icloud.com/123/calendars/shopping/';
+  const todo = (uid, summary, status) =>
+    `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:${uid}\r\nSUMMARY:${summary}\r\nSTATUS:${status}\r\nEND:VTODO\r\nEND:VCALENDAR`;
+  const store = new Map([
+    ['egg-1', { href: `${listHref}eggs.ics`, ics: todo('egg-1', 'Eggs', 'NEEDS-ACTION') }],
+    ['bread-1', { href: `${listHref}bread.ics`, ics: todo('bread-1', 'Bread', 'COMPLETED') }],
+  ]);
+  const remindersXml = () =>
+    `<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">${[...store.values()]
+      .map(
+        (entry, index) =>
+          `<d:response><d:href>${new URL(entry.href).pathname}</d:href><d:propstat><d:prop><d:getetag>t${index}</d:getetag><c:calendar-data><![CDATA[${entry.ics}]]></c:calendar-data></d:prop></d:propstat></d:response>`,
+      )
+      .join('')}</d:multistatus>`;
+  const childrenXml = () =>
+    `<d:multistatus xmlns:d="DAV:"><d:response><d:href>/123/calendars/shopping/</d:href><d:propstat><d:prop><d:getetag>list</d:getetag></d:prop></d:propstat></d:response>${[...store.values()]
+      .map(
+        (entry) =>
+          `<d:response><d:href>${new URL(entry.href).pathname}</d:href><d:propstat><d:prop><d:getetag>e</d:getetag></d:prop></d:propstat></d:response>`,
+      )
+      .join('')}</d:multistatus>`;
+  const listing = `<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:a="http://apple.com/ns/ical/"><d:response><d:href>/123/calendars/home/</d:href><d:propstat><d:prop><d:displayname>Family</d:displayname><d:resourcetype><d:collection/><c:calendar/></d:resourcetype><c:supported-calendar-component-set><c:comp name="VEVENT"/></c:supported-calendar-component-set></d:prop></d:propstat></d:response><d:response><d:href>/123/calendars/shopping/</d:href><d:propstat><d:prop><d:displayname>Shopping</d:displayname><d:resourcetype><d:collection/><c:calendar/></d:resourcetype><c:supported-calendar-component-set><c:comp name="VTODO"/></c:supported-calendar-component-set><a:calendar-color>#34AADC</a:calendar-color></d:prop></d:propstat></d:response></d:multistatus>`;
+  const eventsReport = `<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:response><d:href>/event.ics</d:href><d:propstat><d:prop><c:calendar-data><![CDATA[${ics}]]></c:calendar-data></d:prop></d:propstat></d:response></d:multistatus>`;
+  const puts = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    const requestedUrl =
+      typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+    assert.match(requestedUrl, /^https:\/\/(?:p\d+-)?caldav\.icloud\.com\//);
+    const method = options.method ?? 'GET';
+    const body = typeof options.body === 'string' ? options.body : '';
+    const xml = (payload) =>
+      new Response(payload, {
+        status: 207,
+        headers: { 'Content-Type': 'application/xml' },
+      });
+    if (method === 'PROPFIND') {
+      if (body.includes('current-user-principal'))
+        return xml(
+          `<d:multistatus xmlns:d="DAV:"><d:response><d:href>/.well-known/caldav</d:href><d:propstat><d:prop><d:current-user-principal><d:href>https://p01-caldav.icloud.com/123/principal/</d:href></d:current-user-principal></d:prop></d:propstat></d:response></d:multistatus>`,
+        );
+      if (body.includes('calendar-home-set'))
+        return xml(
+          `<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:response><d:propstat><d:prop><c:calendar-home-set><d:href>/123/calendars/</d:href></c:calendar-home-set></d:prop></d:propstat></d:response></d:multistatus>`,
+        );
+      if (requestedUrl === listHref) return xml(childrenXml());
+      return xml(listing);
+    }
+    if (method === 'REPORT') {
+      if (body.includes('calendar-multiget')) return xml(remindersXml());
+      return xml(eventsReport);
+    }
+    if (method === 'PUT') {
+      puts.push({ url: requestedUrl, body, headers: options.headers });
+      const uid = body.match(/UID:([^\r\n]+)/)?.[1];
+      if (uid) store.set(uid, { href: requestedUrl, ics: body });
+      return new Response('', { status: 201, headers: { etag: 'fresh-etag' } });
+    }
+    if (method === 'GET') {
+      const entry = [...store.values()].find((item) => item.href === requestedUrl);
+      if (!entry) return new Response('not found', { status: 404 });
+      return new Response(entry.ics, { status: 200, headers: { etag: 'get-etag' } });
+    }
+    if (method === 'DELETE') {
+      const entry = [...store.entries()].find(([, item]) => item.href === requestedUrl);
+      if (entry) store.delete(entry[0]);
+      return new Response('', { status: 204 });
+    }
+    throw Error(`unexpected ${method} ${requestedUrl}`);
+  };
+  try {
+    const status = await connectICloud(
+      owner,
+      'family@icloud.com',
+      'abcd-efgh-ijkl-mnop',
+    );
+    assert.equal(status.reminderLists.length, 1);
+    assert.equal(status.reminderLists[0].name, 'Shopping');
+    assert.equal(status.shoppingListId, status.reminderLists[0].id);
+
+    const merged = await syncShoppingItems(
+      owner,
+      [
+        { id: 'a', text: 'Milk' },
+        {
+          id: 'b',
+          text: 'Eggs',
+          uid: 'egg-1',
+          href: `${listHref}eggs.ics`,
+          etag: 'e1',
+          remoteChecked: false,
+        },
+      ],
+      ['b'],
+    );
+    assert.equal(merged.items.length, 3);
+    const milk = merged.items.find((item) => item.text === 'Milk');
+    assert.ok(milk.uid && milk.href.endsWith(`${milk.uid}.ics`));
+    assert.equal(milk.remoteChecked, false);
+    const eggs = merged.items.find((item) => item.uid === 'egg-1');
+    assert.equal(eggs.remoteChecked, true);
+    assert.equal(eggs.etag, 'fresh-etag');
+    const bread = merged.items.find((item) => item.uid === 'bread-1');
+    assert.ok(bread);
+    assert.ok(merged.checkedIds.includes(bread.id));
+    assert.ok(merged.checkedIds.includes('b'));
+    assert.ok(merged.checkedIds.includes('a') === false);
+    assert.ok(puts.some((p) => p.body.includes('SUMMARY:Milk')));
+    assert.ok(puts.some((p) => p.body.includes('STATUS:COMPLETED')));
+
+    // Remote edits pull down: Bread deleted and Eggs unchecked in iCloud.
+    store.delete('bread-1');
+    store.set('egg-1', {
+      href: `${listHref}eggs.ics`,
+      ics: todo('egg-1', 'Eggs', 'NEEDS-ACTION'),
+    });
+    const second = await syncShoppingItems(
+      owner,
+      merged.items,
+      merged.checkedIds,
+    );
+    assert.equal(second.items.length, 2);
+    assert.ok(!second.items.some((item) => item.text === 'Bread'));
+    assert.ok(!second.checkedIds.includes(bread.id));
+    assert.ok(!second.checkedIds.includes('b'));
+    assert.ok(second.items.some((item) => item.text === 'Milk'));
   } finally {
     globalThis.fetch = originalFetch;
   }

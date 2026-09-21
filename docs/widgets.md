@@ -6,7 +6,7 @@ The board is a responsive 12/8/4-column grid with 16px gaps. At 1024 × 768, its
 
 Voice and typed requests create widgets. Opening the same normalised request reuses its saved instance; expired data refreshes before reuse. Keep, unpin, move, resize, refine, refresh, remove and undo operate on the existing instance. Focus temporarily uses an 8/4 split with recipe-library or shopping companions and does not replace the saved board layout. Standard cards expose a full-view action when content exceeds their space.
 
-Recipes keep stable step IDs derived from instruction content. Saved favourites populate the library, and shopping items and checks persist. The calendar card reads a cached, owner-scoped snapshot from a read-only iCloud CalDAV connection. Spending remains an example.
+Recipes keep stable step IDs derived from instruction content. Saved favourites populate the library, and shopping items and checks persist. The calendar card reads a cached, owner-scoped snapshot from a read-only iCloud CalDAV connection. The shopping list syncs both ways with a chosen iCloud reminder list (VTODO collections on the same connection): local adds, checks and clears push to iCloud, and changes made in Reminders pull down on board load when the sync is stale. Spending remains an example.
 
 ## Storage and concurrency
 
@@ -15,14 +15,16 @@ Recipes keep stable step IDs derived from instruction content. Saved favourites 
 - `widget_snapshots`: source-labelled data with freshness and expiry times.
 - `widget_placements`: separate saved positions at all three breakpoints.
 - `widget_mutations`: idempotency receipts for successful changes.
-- `calendar_connections`: encrypted iCloud credential, discovered calendars and sync health for one owner.
+- `calendar_connections`: encrypted iCloud credential, discovered calendars and reminder lists, the selected shopping list, and sync health for one owner.
 - `calendar_events`: the bounded upcoming-event cache rendered by the calendar widget.
 
 Every widget read is scoped to the authenticated Sites identity. Mutations also check the request origin and expected revision. A conditional update and D1 batch gate snapshot and placement changes together. Conflicts reload the current board instead of silently overwriting another screen. Undo restores presentation and layout while retaining current progress. Adding or resizing a widget leaves neighbours' saved slots intact.
 
 The existing recipe schema is preserved. Widget storage is introduced by `drizzle/0001_nasty_mystique.sql`; iCloud connection and event storage are added by `drizzle/0002_volatile_demogoblin.sql`. Recipe favourites retain the existing household-wide store; the current publication is owner-private.
 
-The iCloud app-specific password is encrypted with AES-GCM before storage and is never returned to the browser. Homeboard accepts only Apple CalDAV addresses, discovers event calendars, and reads a rolling 45-day window. The connection UI lets the owner choose calendars, sync immediately, or revoke Homeboard's stored credential. Repeating and all-day events are expanded into the cache; failed refreshes preserve the last successful snapshot and show its health.
+The iCloud app-specific password is encrypted with AES-GCM before storage and is never returned to the browser. Homeboard accepts only Apple CalDAV addresses, discovers event calendars and reminder lists, and reads a rolling 45-day window. The connection UI lets the owner choose calendars, pick a shopping reminder list, sync immediately, or revoke Homeboard's stored credential. Repeating and all-day events are expanded into the cache; failed refreshes preserve the last successful snapshot and show its health.
+
+Shopping sync keeps the widget's snapshot items as the local store, each carrying its CalDAV `uid`, `href`, `etag` and last-seen remote state. Sync pushes new items as VTODOs (`PUT`, `If-None-Match: *`), updates checks by editing the fetched resource (`GET`, `PUT` with `If-Match`), and deletes cleared items (`DELETE`). Remote additions, completions and deletions reconcile down; when both sides changed an item, iCloud wins. Per-item push failures stay unsynced and retry on the next sync; a failed remote delete keeps the item checked for retry.
 
 ## Rendering and generation
 

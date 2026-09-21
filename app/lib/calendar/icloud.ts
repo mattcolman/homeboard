@@ -29,6 +29,10 @@ type ConnectionRow = {
   encrypted_secret: string;
   calendars_json: string;
   selected_calendar_ids_json: string;
+  reminders_json: string;
+  shopping_list_id: string | null;
+  shopping_synced_at: string | null;
+  shopping_error: string | null;
   status: string;
   parser_version: number;
   last_synced_at: string | null;
@@ -40,6 +44,10 @@ export type CalendarConnectionStatus = {
   accountEmail?: string;
   calendars: Omit<CalendarChoice, 'href'>[];
   selectedCalendarIds: string[];
+  reminderLists: Omit<CalendarChoice, 'href'>[];
+  shoppingListId: string | null;
+  shoppingSyncedAt: string | null;
+  shoppingError: string | null;
   status: string;
   lastSyncedAt: string | null;
   lastError: string | null;
@@ -211,7 +219,17 @@ function safeColor(value: string) {
   return value.trim().match(/^#[\da-f]{6}/i)?.[0] ?? '#0430eb';
 }
 
-export async function discoverCalendars(email: string, password: string) {
+function componentNames(block: string) {
+  return (
+    tagBody(block, 'supported-calendar-component-set').match(
+      /comp\b[^>]*\bname=["']([^"']+)["']/gi,
+    ) ?? []
+  ).map((name) =>
+    name.replace(/.*\bname=["']([^"']+)["'].*/i, '$1').toUpperCase(),
+  );
+}
+
+export async function discoverCollections(email: string, password: string) {
   email = email.trim();
   password = password.trim();
   if (
@@ -264,13 +282,9 @@ export async function discoverCalendars(email: string, password: string) {
     '1',
     calendarsRequest,
   );
-  const calendars = responseBlocks(listing.text)
-    .filter(
-      (block) =>
-        /<(?:[\w-]+:)?calendar(?:\s|\/?\s*>)/i.test(block) &&
-        /VEVENT/i.test(block),
-    )
-    .map((block, index): CalendarChoice | null => {
+  const collections = responseBlocks(listing.text)
+    .filter((block) => /<(?:[\w-]+:)?calendar(?:\s|\/?\s*>)/i.test(block))
+    .map((block, index): (CalendarChoice & { components: string[] }) | null => {
       const href = firstTag(block, 'href');
       if (!href) return null;
       const url = safeAppleUrl(href, listing.url);
@@ -281,16 +295,29 @@ export async function discoverCalendars(email: string, password: string) {
           firstTag(block, 'displayname').slice(0, 120) ||
           `Calendar ${index + 1}`,
         color: safeColor(firstTag(block, 'calendar-color')),
+        components: componentNames(block),
       };
     })
-    .filter((calendar): calendar is CalendarChoice => !!calendar)
+    .filter((calendar): calendar is CalendarChoice & { components: string[] } =>
+      !!calendar,
+    )
     .slice(0, 50);
-  if (!calendars.length)
+  const calendars = collections
+    .filter((item) => item.components.includes('VEVENT'))
+    .map(({ components: _components, ...calendar }) => calendar);
+  const reminderLists = collections
+    .filter(
+      (item) =>
+        !item.components.includes('VEVENT') &&
+        item.components.includes('VTODO'),
+    )
+    .map(({ components: _components, ...list }) => list);
+  if (!calendars.length && !reminderLists.length)
     throw new CalendarConnectionError(
-      'No event calendars were found in that iCloud account.',
+      'No calendars or reminder lists were found in that iCloud account.',
       404,
     );
-  return calendars;
+  return { calendars, reminderLists };
 }
 
 function rangeValue(date: Date) {
@@ -470,16 +497,25 @@ export async function getCalendarConnectionStatus(
       connected: false,
       calendars: [],
       selectedCalendarIds: [],
+      reminderLists: [],
+      shoppingListId: null,
+      shoppingSyncedAt: null,
+      shoppingError: null,
       status: 'disconnected',
       lastSyncedAt: null,
       lastError: null,
     };
   const calendars = JSON.parse(row.calendars_json) as CalendarChoice[];
+  const reminderLists = JSON.parse(row.reminders_json) as CalendarChoice[];
   return {
     connected: true,
     accountEmail: row.account_email,
     calendars: publicCalendars(calendars),
     selectedCalendarIds: JSON.parse(row.selected_calendar_ids_json),
+    reminderLists: publicCalendars(reminderLists),
+    shoppingListId: row.shopping_list_id,
+    shoppingSyncedAt: row.shopping_synced_at,
+    shoppingError: row.shopping_error,
     status: row.status,
     lastSyncedAt: row.last_synced_at,
     lastError: row.last_error,
@@ -491,14 +527,19 @@ export async function connectICloud(
   email: string,
   password: string,
 ) {
-  const calendars = await discoverCalendars(email, password);
+  const { calendars, reminderLists } = await discoverCollections(
+    email,
+    password,
+  );
   const encrypted = await encryptCredential(password.trim());
+  const shoppingList =
+    reminderLists.find((list) => /shopping/i.test(list.name)) ?? null;
   const now = new Date().toISOString();
   await db()
     .prepare(
-      `INSERT INTO calendar_connections(owner_id,provider,account_email,encrypted_secret,calendars_json,selected_calendar_ids_json,status,last_error,created_at,updated_at)
-       VALUES(?,?,?,?,?,?,? ,NULL,?,?)
-       ON CONFLICT(owner_id) DO UPDATE SET provider=excluded.provider,account_email=excluded.account_email,encrypted_secret=excluded.encrypted_secret,calendars_json=excluded.calendars_json,selected_calendar_ids_json=excluded.selected_calendar_ids_json,status=excluded.status,last_error=NULL,updated_at=excluded.updated_at`,
+      `INSERT INTO calendar_connections(owner_id,provider,account_email,encrypted_secret,calendars_json,selected_calendar_ids_json,reminders_json,shopping_list_id,status,last_error,created_at,updated_at)
+       VALUES(?,?,?,?,?,?,?,?,?,NULL,?,?)
+       ON CONFLICT(owner_id) DO UPDATE SET provider=excluded.provider,account_email=excluded.account_email,encrypted_secret=excluded.encrypted_secret,calendars_json=excluded.calendars_json,selected_calendar_ids_json=excluded.selected_calendar_ids_json,reminders_json=excluded.reminders_json,shopping_list_id=excluded.shopping_list_id,shopping_error=NULL,status=excluded.status,last_error=NULL,updated_at=excluded.updated_at`,
     )
     .bind(
       owner,
@@ -507,6 +548,8 @@ export async function connectICloud(
       encrypted,
       JSON.stringify(calendars),
       JSON.stringify(calendars.map((calendar) => calendar.id)),
+      JSON.stringify(reminderLists),
+      shoppingList?.id ?? null,
       'connected',
       now,
       now,
@@ -531,6 +574,61 @@ export async function selectCalendars(owner: string, selectedIds: string[]) {
     .bind(JSON.stringify(selected), new Date().toISOString(), owner)
     .run();
   await syncICloud(owner);
+  return getCalendarConnectionStatus(owner);
+}
+
+export async function rediscoverCollections(owner: string) {
+  const row = await connection(owner);
+  if (!row) throw new CalendarConnectionError('Connect iCloud first.', 404);
+  const password = await decryptCredential(row.encrypted_secret);
+  const { calendars, reminderLists } = await discoverCollections(
+    row.account_email,
+    password,
+  );
+  const selected = new Set<string>(
+    JSON.parse(row.selected_calendar_ids_json),
+  );
+  const keep = calendars
+    .map((calendar) => calendar.id)
+    .filter((id) => selected.has(id));
+  const lists = new Set(reminderLists.map((list) => list.id));
+  await db()
+    .prepare(
+      'UPDATE calendar_connections SET calendars_json=?,selected_calendar_ids_json=?,reminders_json=?,shopping_list_id=?,updated_at=? WHERE owner_id=?',
+    )
+    .bind(
+      JSON.stringify(calendars),
+      JSON.stringify(
+        keep.length ? keep : calendars.map((calendar) => calendar.id),
+      ),
+      JSON.stringify(reminderLists),
+      row.shopping_list_id && lists.has(row.shopping_list_id)
+        ? row.shopping_list_id
+        : (reminderLists.find((list) => /shopping/i.test(list.name))?.id ??
+          null),
+      new Date().toISOString(),
+      owner,
+    )
+    .run();
+  return getCalendarConnectionStatus(owner);
+}
+
+export async function selectShoppingList(owner: string, listId: string | null) {
+  const row = await connection(owner);
+  if (!row) throw new CalendarConnectionError('Connect iCloud first.', 404);
+  if (listId !== null) {
+    const lists = JSON.parse(row.reminders_json) as CalendarChoice[];
+    if (!lists.some((list) => list.id === listId))
+      throw new CalendarConnectionError(
+        'Choose one of your iCloud reminder lists.',
+      );
+  }
+  await db()
+    .prepare(
+      'UPDATE calendar_connections SET shopping_list_id=?,updated_at=? WHERE owner_id=?',
+    )
+    .bind(listId, new Date().toISOString(), owner)
+    .run();
   return getCalendarConnectionStatus(owner);
 }
 
@@ -695,4 +793,368 @@ export async function calendarSnapshot(
     ).toISOString(),
     expiresAt: null,
   };
+}
+
+// --- iCloud Reminders (VTODO) — two-way shopping list sync ---
+
+export type RemoteReminder = {
+  uid: string;
+  href: string;
+  etag: string;
+  text: string;
+  checked: boolean;
+};
+export type ShoppingSyncItem = {
+  id: string;
+  text: string;
+  uid?: string;
+  href?: string;
+  etag?: string;
+  remoteChecked?: boolean;
+};
+export type ShoppingConnection = {
+  listId: string;
+  listName: string;
+  email: string;
+  password: string;
+  syncedAt: string | null;
+};
+
+const reminderChildrenRequest = `<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:getetag/></d:prop></d:propfind>`;
+
+function reminderMultiget(hrefs: string[]) {
+  const links = hrefs
+    .map(
+      (href) =>
+        `<d:href>${href.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</d:href>`,
+    )
+    .join('');
+  return `<?xml version="1.0" encoding="utf-8"?><c:calendar-multiget xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag/><c:calendar-data/></d:prop>${links}</c:calendar-multiget>`;
+}
+
+async function davObject(
+  url: string,
+  email: string,
+  password: string,
+  method: 'GET' | 'PUT' | 'DELETE',
+  init: { body?: string; etag?: string; create?: boolean } = {},
+) {
+  const headers: Record<string, string> = {
+    Authorization: authHeader(email, password),
+  };
+  if (init.body) headers['Content-Type'] = 'text/calendar; charset=utf-8';
+  if (init.etag) headers['If-Match'] = init.etag;
+  if (init.create) headers['If-None-Match'] = '*';
+  const response = await fetch(safeAppleUrl(url, APPLE_CALDAV), {
+    method,
+    signal: AbortSignal.timeout(25_000),
+    headers,
+    ...(init.body ? { body: init.body } : {}),
+  });
+  if (response.status === 401 || response.status === 403)
+    throw new CalendarConnectionError(
+      'iCloud rejected that email or app-specific password.',
+      401,
+    );
+  if (response.status === 404)
+    throw new CalendarConnectionError(
+      'That reminder no longer exists in iCloud.',
+      404,
+    );
+  if (!response.ok)
+    throw new CalendarConnectionError(
+      'iCloud Reminders could not be reached. Please try again.',
+      502,
+    );
+  return {
+    text: await response.text(),
+    etag: response.headers.get('etag') ?? '',
+  };
+}
+
+export function parseReminders(
+  xml: string,
+  base: string,
+): RemoteReminder[] {
+  const items: RemoteReminder[] = [];
+  for (const block of responseBlocks(xml)) {
+    const href = firstTag(block, 'href');
+    const etag = firstTag(block, 'getetag');
+    const data = calendarData(block);
+    if (!href || !data) continue;
+    let root: ICAL.Component;
+    try {
+      root = new ICAL.Component(ICAL.parse(data));
+    } catch {
+      continue;
+    }
+    for (const vtodo of root.getAllSubcomponents('vtodo')) {
+      const uid = String(vtodo.getFirstPropertyValue('uid') ?? '');
+      const text = String(vtodo.getFirstPropertyValue('summary') ?? '')
+        .trim()
+        .slice(0, 400);
+      if (!uid || !text) continue;
+      items.push({
+        uid,
+        href: safeAppleUrl(href, base),
+        etag,
+        text,
+        checked:
+          String(vtodo.getFirstPropertyValue('status') ?? '').toUpperCase() ===
+          'COMPLETED',
+      });
+    }
+  }
+  return items;
+}
+
+async function fetchReminderItems(
+  email: string,
+  password: string,
+  listHref: string,
+): Promise<RemoteReminder[]> {
+  // iCloud rejects calendar-query on VTODO collections, so list the child
+  // resources first and then multiget their calendar data.
+  const listing = await dav(
+    listHref,
+    email,
+    password,
+    'PROPFIND',
+    '1',
+    reminderChildrenRequest,
+  );
+  const children = responseBlocks(listing.text)
+    .map((block) => firstTag(block, 'href'))
+    .filter((href) => href.endsWith('.ics'))
+    .slice(0, 200);
+  if (!children.length) return [];
+  const result = await dav(
+    listHref,
+    email,
+    password,
+    'REPORT',
+    '1',
+    reminderMultiget(children),
+  );
+  return parseReminders(result.text, result.url);
+}
+
+const icsEscape = (value: string) =>
+  value
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+
+async function createReminderItem(
+  email: string,
+  password: string,
+  listHref: string,
+  text: string,
+  checked: boolean,
+) {
+  const uid = crypto.randomUUID();
+  const stamp = rangeValue(new Date());
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Homeboard//Shopping//EN',
+    'BEGIN:VTODO',
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    `SUMMARY:${icsEscape(text)}`,
+    checked ? 'STATUS:COMPLETED' : 'STATUS:NEEDS-ACTION',
+    ...(checked ? [`COMPLETED:${stamp}`, 'PERCENT-COMPLETE:100'] : []),
+    'END:VTODO',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const base = listHref.endsWith('/') ? listHref : `${listHref}/`;
+  const url = safeAppleUrl(`${uid}.ics`, base);
+  const result = await davObject(url, email, password, 'PUT', {
+    body: ics,
+    create: true,
+  });
+  return { uid, href: url, etag: result.etag };
+}
+
+async function setReminderChecked(
+  email: string,
+  password: string,
+  reminder: { href: string; etag: string },
+  checked: boolean,
+) {
+  const current = await davObject(reminder.href, email, password, 'GET');
+  const root = new ICAL.Component(ICAL.parse(current.text));
+  const vtodo = root.getFirstSubcomponent('vtodo');
+  if (!vtodo)
+    throw new CalendarConnectionError(
+      'iCloud returned an unreadable reminder.',
+      502,
+    );
+  if (checked) {
+    vtodo.updatePropertyWithValue('status', 'COMPLETED');
+    vtodo.updatePropertyWithValue('percent-complete', 100);
+    vtodo.updatePropertyWithValue(
+      'completed',
+      ICAL.Time.fromJSDate(new Date()),
+    );
+  } else {
+    vtodo.updatePropertyWithValue('status', 'NEEDS-ACTION');
+    vtodo.updatePropertyWithValue('percent-complete', 0);
+    vtodo.removeProperty('completed');
+  }
+  const result = await davObject(reminder.href, email, password, 'PUT', {
+    body: root.toString(),
+    etag: current.etag || reminder.etag || undefined,
+  });
+  return result.etag;
+}
+
+export async function shoppingConnection(
+  owner: string,
+): Promise<ShoppingConnection | null> {
+  const row = await connection(owner);
+  if (!row?.shopping_list_id) return null;
+  const lists = JSON.parse(row.reminders_json) as CalendarChoice[];
+  const list = lists.find((item) => item.id === row.shopping_list_id);
+  if (!list) return null;
+  return {
+    listId: list.id,
+    listName: list.name,
+    email: row.account_email,
+    password: await decryptCredential(row.encrypted_secret),
+    syncedAt: row.shopping_synced_at,
+  };
+}
+
+export async function deleteShoppingItem(
+  owner: string,
+  href: string,
+  etag?: string,
+) {
+  const row = await connection(owner);
+  if (!row?.shopping_list_id) return;
+  const password = await decryptCredential(row.encrypted_secret);
+  try {
+    await davObject(href, row.account_email, password, 'DELETE', { etag });
+  } catch (error) {
+    if (
+      error instanceof CalendarConnectionError &&
+      error.status === 404
+    )
+      return;
+    throw error;
+  }
+}
+
+/**
+ * Reconcile the shopping widget's items with the selected iCloud reminder
+ * list. New local items are pushed, local check changes are pushed, remote
+ * changes are pulled, and reminders deleted in iCloud disappear locally.
+ * When both sides changed the same item, iCloud wins. Per-item push failures
+ * leave that item unsynced so the next sync retries it; a list fetch failure
+ * aborts the whole sync and records shopping_error.
+ */
+export async function syncShoppingItems(
+  owner: string,
+  items: ShoppingSyncItem[],
+  checkedIds: string[],
+): Promise<{ items: ShoppingSyncItem[]; checkedIds: string[] } | null> {
+  const ctx = await shoppingConnection(owner);
+  if (!ctx) return null;
+  try {
+    const remote = await fetchReminderItems(ctx.email, ctx.password, ctx.listId);
+    const byUid = new Map(remote.map((item) => [item.uid, item]));
+    const checked = new Set(checkedIds);
+    const next: ShoppingSyncItem[] = [];
+    const nextChecked = new Set<string>();
+    for (const item of items) {
+      if (!item.uid) {
+        try {
+          const done = checked.has(item.id);
+          const created = await createReminderItem(
+            ctx.email,
+            ctx.password,
+            ctx.listId,
+            item.text,
+            done,
+          );
+          next.push({ ...item, ...created, remoteChecked: done });
+        } catch {
+          next.push(item);
+        }
+        if (checked.has(item.id)) nextChecked.add(item.id);
+        continue;
+      }
+      const reminder = byUid.get(item.uid);
+      byUid.delete(item.uid);
+      if (!reminder) continue;
+      const localChecked = checked.has(item.id);
+      const remoteChecked = item.remoteChecked ?? false;
+      if (reminder.checked !== remoteChecked) {
+        if (reminder.checked) nextChecked.add(item.id);
+        next.push({
+          ...item,
+          text: reminder.text,
+          href: reminder.href,
+          etag: reminder.etag,
+          remoteChecked: reminder.checked,
+        });
+      } else if (localChecked !== remoteChecked) {
+        let etag = reminder.etag,
+          synced = remoteChecked;
+        try {
+          etag =
+            (await setReminderChecked(
+              ctx.email,
+              ctx.password,
+              reminder,
+              localChecked,
+            )) || reminder.etag;
+          synced = localChecked;
+        } catch {
+          // Leave remoteChecked stale so a later sync retries the push.
+        }
+        if (localChecked) nextChecked.add(item.id);
+        next.push({ ...item, text: reminder.text, etag, remoteChecked: synced });
+      } else {
+        if (localChecked) nextChecked.add(item.id);
+        next.push({ ...item, text: reminder.text, etag: reminder.etag });
+      }
+    }
+    for (const reminder of byUid.values()) {
+      const id = crypto.randomUUID();
+      next.push({
+        id,
+        text: reminder.text,
+        uid: reminder.uid,
+        href: reminder.href,
+        etag: reminder.etag,
+        remoteChecked: reminder.checked,
+      });
+      if (reminder.checked) nextChecked.add(id);
+    }
+    const now = new Date().toISOString();
+    await db()
+      .prepare(
+        'UPDATE calendar_connections SET shopping_synced_at=?,shopping_error=NULL,updated_at=? WHERE owner_id=?',
+      )
+      .bind(now, now, owner)
+      .run();
+    return { items: next, checkedIds: [...nextChecked] };
+  } catch (error) {
+    await db()
+      .prepare(
+        'UPDATE calendar_connections SET shopping_error=?,updated_at=? WHERE owner_id=?',
+      )
+      .bind(
+        error instanceof CalendarConnectionError
+          ? error.message
+          : 'iCloud Reminders could not be refreshed.',
+        new Date().toISOString(),
+        owner,
+      )
+      .run();
+    throw error;
+  }
 }

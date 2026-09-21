@@ -56,7 +56,14 @@ export type Snapshot = {
     content?: Record<string, ContentValue>;
     recipe?: Recipe;
     recipes?: Recipe[];
-    items?: { id: string; text: string }[];
+    items?: {
+      id: string;
+      text: string;
+      uid?: string;
+      href?: string;
+      etag?: string;
+      remoteChecked?: boolean;
+    }[];
     calendarEvents?: CalendarEvent[];
     calendarConnected?: boolean;
     calendarError?: string | null;

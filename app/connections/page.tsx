@@ -18,6 +18,10 @@ type Status = {
   accountEmail?: string;
   calendars: { id: string; name: string; color: string }[];
   selectedCalendarIds: string[];
+  reminderLists: { id: string; name: string; color: string }[];
+  shoppingListId: string | null;
+  shoppingSyncedAt: string | null;
+  shoppingError: string | null;
   status: string;
   lastSyncedAt: string | null;
   lastError: string | null;
@@ -27,6 +31,10 @@ const EMPTY: Status = {
   connected: false,
   calendars: [],
   selectedCalendarIds: [],
+  reminderLists: [],
+  shoppingListId: null,
+  shoppingSyncedAt: null,
+  shoppingError: null,
   status: 'disconnected',
   lastSyncedAt: null,
   lastError: null,
@@ -38,6 +46,7 @@ export default function Connections() {
     [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
     [selected, setSelected] = useState<string[]>([]),
+    [shoppingList, setShoppingList] = useState<string | null>(null),
     [message, setMessage] = useState<Message | null>(null);
   const load = useCallback(async () => {
     try {
@@ -48,6 +57,7 @@ export default function Connections() {
       if (!response.ok) throw Error(data.error || 'Connection could not load.');
       setStatus(data);
       setSelected(data.selectedCalendarIds);
+      setShoppingList(data.shoppingListId ?? null);
     } catch (error) {
       setMessage({
         text:
@@ -77,6 +87,7 @@ export default function Connections() {
         throw Error(data.error || 'iCloud could not be updated.');
       setStatus(data);
       setSelected(data.selectedCalendarIds);
+      setShoppingList(data.shoppingListId ?? null);
       setPassword('');
       return data;
     } catch (error) {
@@ -126,7 +137,8 @@ export default function Connections() {
         <p>
           Choose the calendars that belong on the kitchen screen. Homeboard
           reads upcoming events and keeps the widget current; it cannot add,
-          change or delete events.
+          change or delete events. Pick a reminder list and the Shopping
+          widget stays in sync with it both ways.
         </p>
       </section>
 
@@ -247,19 +259,51 @@ export default function Connections() {
                 </label>
               ))}
             </fieldset>
+            {status.reminderLists.length > 0 && (
+              <fieldset>
+                <legend>Sync the Shopping widget with</legend>
+                <label className="calendar-choice">
+                  <input
+                    type="radio"
+                    name="shopping-list"
+                    checked={shoppingList === null}
+                    onChange={() => setShoppingList(null)}
+                  />
+                  <i />
+                  <span>No reminder list</span>
+                </label>
+                {status.reminderLists.map((list) => (
+                  <label className="calendar-choice" key={list.id}>
+                    <input
+                      type="radio"
+                      name="shopping-list"
+                      checked={shoppingList === list.id}
+                      onChange={() => setShoppingList(list.id)}
+                    />
+                    <i style={{ background: list.color }} />
+                    <span>{list.name}</span>
+                  </label>
+                ))}
+                {status.shoppingError && (
+                  <p className="connection-error">{status.shoppingError}</p>
+                )}
+              </fieldset>
+            )}
             <button
               className="connection-primary"
               disabled={saving || !selected.length}
               onClick={() =>
-                void update({ action: 'select', calendarIds: selected }).then(
-                  (result) => {
-                    if (result)
-                      setMessage({
-                        text: 'Your calendar choices have been saved.',
-                        tone: 'success',
-                      });
-                  },
-                )
+                void update({
+                  action: 'select',
+                  calendarIds: selected,
+                  shoppingListId: shoppingList,
+                }).then((result) => {
+                  if (result)
+                    setMessage({
+                      text: 'Your calendar choices have been saved.',
+                      tone: 'success',
+                    });
+                })
               }
             >
               {saving ? <LoaderCircle className="spin" /> : <Check />}

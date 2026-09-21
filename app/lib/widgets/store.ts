@@ -1,6 +1,11 @@
 import { env } from 'cloudflare:workers';
 import { listRecipes, saveRecipe } from '../db';
-import { calendarSnapshot } from '../calendar/icloud';
+import {
+  calendarSnapshot,
+  deleteShoppingItem,
+  shoppingConnection,
+  syncShoppingItems,
+} from '../calendar/icloud';
 import { generateWidget } from './generation';
 import {
   isExpired,
@@ -351,6 +356,10 @@ export async function loadBoard(owner: string): Promise<Board> {
       }
       continue;
     }
+    if (widget.binding.type === 'shopping') {
+      widgets[i] = await syncShopping(owner, widget, false);
+      continue;
+    }
     if (
       widget.binding.type === 'library' &&
       JSON.stringify(widget.snapshot.data.recipes) !== JSON.stringify(recipes)
@@ -610,6 +619,8 @@ async function refreshWidget(
       : { ...current.state, stepId: stepId(recipe.steps[0] ?? '') };
     return write(owner, current, { snapshot, state }, mutationId, false);
   }
+  if (current.binding.type === 'shopping')
+    return syncShopping(owner, current, true);
   if (current.binding.type === 'generated' && current.query) {
     const generated = await generateWidget(current.query, {
       definition: current.definition,
@@ -624,6 +635,60 @@ async function refreshWidget(
     );
   }
   return current;
+}
+
+async function syncShopping(owner: string, widget: Widget, always: boolean) {
+  try {
+    const ctx = await shoppingConnection(owner);
+    if (!ctx) return widget;
+    if (
+      !always &&
+      ctx.syncedAt &&
+      Date.now() - new Date(ctx.syncedAt).getTime() < 15 * 60_000
+    )
+      return widget;
+    const merged = await syncShoppingItems(
+      owner,
+      widget.snapshot.data.items ?? [],
+      widget.state.checked ?? [],
+    );
+    if (!merged) return widget;
+    const nextChecked = merged.checkedIds.filter((id) =>
+      merged.items.some((item) => item.id === id),
+    );
+    const fetchedAt = new Date().toISOString();
+    const snapshot: Snapshot = {
+      data: { items: merged.items },
+      source: `iCloud Reminders · ${ctx.listName}`,
+      sources: [],
+      fetchedAt,
+      staleAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      expiresAt: null,
+    };
+    if (
+      JSON.stringify(widget.snapshot.data.items) ===
+        JSON.stringify(merged.items) &&
+      JSON.stringify(widget.state.checked ?? []) ===
+        JSON.stringify(nextChecked)
+    )
+      return widget;
+    return await write(
+      owner,
+      widget,
+      { snapshot, state: { ...widget.state, checked: nextChecked } },
+      crypto.randomUUID(),
+      false,
+    );
+  } catch (error) {
+    if (error instanceof WidgetError && error.status === 409)
+      return getWidget(owner, widget.id);
+    return widget;
+  }
+}
+export async function syncShoppingBoard(owner: string) {
+  const widgets = await allWidgets(owner);
+  for (const widget of widgets.filter((w) => w.binding.type === 'shopping'))
+    await syncShopping(owner, widget, true);
 }
 
 export async function actOnWidget(
@@ -688,7 +753,7 @@ export async function actOnWidget(
       if (!item || item.length > 150)
         throw new WidgetError('Choose a checklist item.');
       const checked = current.state.checked ?? [];
-      return write(
+      const written = await write(
         owner,
         current,
         {
@@ -702,6 +767,9 @@ export async function actOnWidget(
         mutationId,
         false,
       );
+      return current.definition.kind === 'shopping'
+        ? syncShopping(owner, written, true)
+        : written;
     }
     case 'save_recipe': {
       const recipe = current.snapshot.data.recipe;
@@ -873,7 +941,7 @@ export async function actOnWidget(
         throw new WidgetError(
           'The shopping list is full. Clear checked items first.',
         );
-      return write(
+      const written = await write(
         owner,
         current,
         {
@@ -883,23 +951,43 @@ export async function actOnWidget(
         },
         mutationId,
       );
+      return syncShopping(owner, written, true);
     }
     case 'clear_checked': {
       if (current.definition.kind !== 'shopping')
         throw new WidgetError('Choose the shopping list first.');
-      return write(
+      const items = current.snapshot.data.items ?? [],
+        checkedIds = new Set(current.state.checked ?? []),
+        doomed = items.filter((i) => checkedIds.has(i.id));
+      const survivors = items.filter((i) => !checkedIds.has(i.id));
+      // Deleting in iCloud is the remote half of clearing; a failed delete
+      // keeps the item checked locally so it can be retried.
+      if (await shoppingConnection(owner).catch(() => null))
+        for (const item of doomed) {
+          if (!item.href) continue;
+          try {
+            await deleteShoppingItem(owner, item.href, item.etag);
+          } catch {
+            survivors.push(item);
+          }
+        }
+      const written = await write(
         owner,
         current,
         {
           snapshot: emptySnapshot('Your shopping list', {
-            items: (current.snapshot.data.items ?? []).filter(
-              (i) => !current.state.checked?.includes(i.id),
-            ),
+            items: survivors,
           }),
-          state: { ...current.state, checked: [] },
+          state: {
+            ...current.state,
+            checked: survivors
+              .filter((i) => checkedIds.has(i.id))
+              .map((i) => i.id),
+          },
         },
         mutationId,
       );
+      return syncShopping(owner, written, true);
     }
     default:
       throw new WidgetError('That widget action is not supported.');

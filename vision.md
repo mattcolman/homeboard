@@ -44,7 +44,7 @@ Homeboard now opens onto a persistent widget board. Voice and a secondary typed 
 
 The iPad layout uses 12 columns in landscape, eight in portrait and four on narrow screens. Its reference height is six rows. The board stores each widget's design, data snapshot, interaction state and placement separately, so changing its presentation preserves cooking and checklist progress.
 
-Recipes and shopping lists are functional: saved recipes appear in Family favourites, cooking steps persist, and ingredients can be added to shopping. The schedule can use a private iCloud calendar connection, with an encrypted app-specific password and a cached, read-only event view. Spending is still labelled as an example; other household account connections remain future work.
+Recipes and shopping lists are functional: saved recipes appear in Family favourites, cooking steps persist, and ingredients can be added to shopping. The schedule can use a private iCloud calendar connection, with an encrypted app-specific password and a cached, read-only event view. The shopping list can sync both ways with an iCloud reminder list over the same connection. Spending is still labelled as an example; other household account connections remain future work.
 
 Custom interactive visuals run in an isolated frame with a readable fallback. Individual widgets can be explicitly allowed an offline copy for 24 hours. Device performance, microphone interaction and Safari behaviour still need checking on the target iPad before calling this a finished kitchen appliance.
 
