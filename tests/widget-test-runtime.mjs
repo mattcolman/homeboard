@@ -6,6 +6,7 @@ for (const file of [
   'drizzle/0001_nasty_mystique.sql',
   'drizzle/0002_volatile_demogoblin.sql',
   'drizzle/0003_happy_thunderbolts.sql',
+  'drizzle/0004_majestic_ted_forrester.sql',
 ])
   sqlite.exec(readFileSync(file, 'utf8'));
 class Prepared {

@@ -78,6 +78,10 @@ export const calendarConnections = sqliteTable('calendar_connections', {
   selectedCalendarIdsJson: text('selected_calendar_ids_json')
     .notNull()
     .default('[]'),
+  remindersJson: text('reminders_json').notNull().default('[]'),
+  shoppingListId: text('shopping_list_id'),
+  shoppingSyncedAt: text('shopping_synced_at'),
+  shoppingError: text('shopping_error'),
   status: text('status').notNull().default('connected'),
   parserVersion: integer('parser_version').notNull().default(1),
   lastSyncedAt: text('last_synced_at'),
