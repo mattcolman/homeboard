@@ -1,0 +1,1 @@
+ALTER TABLE `calendar_connections` ADD `parser_version` integer DEFAULT 1 NOT NULL;

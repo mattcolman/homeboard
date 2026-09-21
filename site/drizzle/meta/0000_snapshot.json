@@ -1,0 +1,39 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "4b5cd720-e1d6-4289-8cc7-7898a7b5036c",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "recipes": {
+      "name": "recipes",
+      "columns": {
+        "id": { "name": "id", "type": "integer", "primaryKey": true, "notNull": true, "autoincrement": true },
+        "canonical_url": { "name": "canonical_url", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "title": { "name": "title", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "source_name": { "name": "source_name", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "source_author": { "name": "source_author", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "image_url": { "name": "image_url", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "video_url": { "name": "video_url", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "description": { "name": "description", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "total_minutes": { "name": "total_minutes", "type": "integer", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "servings": { "name": "servings", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "ingredients_json": { "name": "ingredients_json", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "steps_json": { "name": "steps_json", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "family_note": { "name": "family_note", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "favourite": { "name": "favourite", "type": "integer", "primaryKey": false, "notNull": true, "autoincrement": false, "default": true },
+        "created_at": { "name": "created_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false }
+      },
+      "indexes": {
+        "recipes_canonical_url_unique": { "name": "recipes_canonical_url_unique", "columns": ["canonical_url"], "isUnique": true }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": { "schemas": {}, "tables": {}, "columns": {} },
+  "internal": { "indexes": {} }
+}
