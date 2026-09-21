@@ -208,7 +208,7 @@ const homeRequest = `<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="
 const calendarsRequest = `<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:a="http://apple.com/ns/ical/"><d:prop><d:displayname/><d:resourcetype/><a:calendar-color/><c:supported-calendar-component-set/></d:prop></d:propfind>`;
 
 function safeColor(value: string) {
-  return value.trim().match(/^#[\da-f]{6}/i)?.[0] ?? '#315f50';
+  return value.trim().match(/^#[\da-f]{6}/i)?.[0] ?? '#0430eb';
 }
 
 export async function discoverCalendars(email: string, password: string) {

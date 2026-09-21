@@ -3,7 +3,7 @@
   padding: 22px 32px 60px;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans-local);
 }
 .connections-header {
   display: flex;
@@ -18,7 +18,7 @@
   align-items: center;
   gap: 8px;
   min-height: 48px;
-  color: var(--primary);
+  color: var(--accent);
   font-weight: 700;
   text-decoration: none;
 }
@@ -43,8 +43,7 @@
 .connections-wordmark strong {
   display: block;
   font:
-    700 22px/1.1 Georgia,
-    serif;
+    700 22px/1.1 var(--font-display-local);
 }
 .connections-wordmark small {
   display: block;
@@ -59,7 +58,7 @@
 }
 .connection-kicker {
   margin: 0;
-  color: #687970;
+  color: #5d6b7a;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -69,14 +68,13 @@
   max-width: 760px;
   margin: 12px auto;
   font:
-    700 clamp(38px, 5vw, 64px)/1 Georgia,
-    serif;
+    700 clamp(38px, 5vw, 64px)/1 var(--font-display-local);
   letter-spacing: -0.035em;
 }
 .connection-intro > p:last-child {
   max-width: 680px;
   margin: 20px auto 0;
-  color: #66756d;
+  color: #5d6b7a;
   font-size: 18px;
   line-height: 1.6;
 }
@@ -93,7 +91,7 @@
   border-radius: 24px;
   background: var(--card);
   padding: 28px;
-  box-shadow: 0 10px 38px #263a3210;
+  box-shadow: 0 10px 38px #0f172212;
 }
 .connection-card-title {
   display: flex;
@@ -104,8 +102,7 @@
 .connection-card-title h2 {
   margin: 0;
   font:
-    700 27px/1.1 Georgia,
-    serif;
+    700 27px/1.1 var(--font-display-local);
 }
 .connection-card-title p {
   margin: 5px 0 0;
@@ -119,11 +116,11 @@
   flex: none;
   place-items: center;
   border-radius: 16px;
-  background: #e5e9e1;
-  color: var(--primary);
+  background: #e7edfe;
+  color: var(--accent);
 }
 .connection-icon.connected {
-  background: #dcebdc;
+  background: #dff2e9;
 }
 .connection-icon svg {
   width: 24px;
@@ -132,7 +129,7 @@
   display: grid;
   gap: 8px;
   margin-top: 18px;
-  color: #506159;
+  color: #3d4a5c;
   font-size: 14px;
   font-weight: 700;
 }
@@ -145,14 +142,13 @@
   padding: 12px 14px;
   color: var(--foreground);
   font:
-    17px Arial,
-    sans-serif;
+    17px var(--font-sans-local);
 }
 .connection-form input:focus-visible,
 .calendar-choice input:focus-visible,
 .connections-shell button:focus-visible,
 .connections-shell a:focus-visible {
-  outline: 3px solid #9f5c43;
+  outline: 3px solid #0430eb;
   outline-offset: 3px;
 }
 .connections-shell button {
@@ -164,8 +160,7 @@
   border-radius: 13px;
   padding: 11px 16px;
   font:
-    700 15px Arial,
-    sans-serif;
+    700 15px var(--font-sans-local);
 }
 .connections-shell button svg {
   width: 19px;
@@ -179,8 +174,7 @@
   padding: 0;
   color: var(--primary);
   font:
-    700 16px Arial,
-    sans-serif;
+    700 16px var(--font-sans-local);
   cursor: pointer;
 }
 .connections-shell button:disabled {
@@ -199,9 +193,9 @@
   gap: 11px;
   margin-top: 20px;
   border-radius: 14px;
-  background: #edf1eb;
+  background: #eef2f6;
   padding: 14px;
-  color: #50645a;
+  color: #3d4a5c;
 }
 .privacy-note svg {
   width: 22px;
@@ -226,7 +220,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--primary);
+  color: var(--accent);
   font-weight: 700;
 }
 .connection-steps a svg {
@@ -245,7 +239,7 @@
 }
 .calendar-picker legend {
   margin-bottom: 10px;
-  color: #506159;
+  color: #3d4a5c;
   font-size: 14px;
   font-weight: 700;
 }
@@ -254,19 +248,19 @@
   align-items: center;
   gap: 13px;
   min-height: 53px;
-  border-bottom: 1px solid #e7e5dc;
+  border-bottom: 1px solid #e6ebf1;
   font-size: 17px;
 }
 .calendar-choice input {
   width: 22px;
   height: 22px;
-  accent-color: var(--primary);
+  accent-color: var(--accent);
 }
 .calendar-choice i {
   width: 8px;
   height: 30px;
   border-radius: 10px;
-  background: var(--primary);
+  background: var(--accent);
 }
 .connection-health {
   align-self: start;
@@ -281,12 +275,12 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #63a279;
-  box-shadow: 0 0 0 6px #63a2791c;
+  background: #22a565;
+  box-shadow: 0 0 0 6px #22a56524;
 }
 .health-status.attention > i {
-  background: #be754f;
-  box-shadow: 0 0 0 6px #be754f1c;
+  background: #dd7e33;
+  box-shadow: 0 0 0 6px #dd7e3324;
 }
 .health-status strong,
 .health-status small {
@@ -299,9 +293,9 @@
 }
 .connection-error {
   border-radius: 12px;
-  background: #fae8df;
+  background: #fbe9e5;
   padding: 12px;
-  color: #8f472f;
+  color: #b03828;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -311,24 +305,24 @@
   margin-top: 14px;
   border: 1px solid var(--border);
   background: transparent;
-  color: var(--primary);
+  color: var(--accent);
 }
 .connection-danger {
-  color: #934834;
+  color: #b03828;
 }
 .connections-shell > output {
   display: block;
   max-width: 980px;
   margin: 18px auto 0;
   border-radius: 13px;
-  background: #e3eee4;
+  background: #dff2e9;
   padding: 13px 16px;
-  color: #315f50;
+  color: #177a52;
   font-weight: 700;
 }
 .connections-shell > output.error {
-  background: #fae8df;
-  color: #8f472f;
+  background: #fbe9e5;
+  color: #b03828;
 }
 .connections-loading {
   display: grid;
