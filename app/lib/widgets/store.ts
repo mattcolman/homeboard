@@ -813,6 +813,7 @@ export async function applyIngest(
     !content ||
     typeof content !== 'object' ||
     Array.isArray(content) ||
+    !Object.keys(content).length ||
     Object.keys(content).length > 20
   )
     throw new WidgetError('That ingest content is invalid.');
@@ -895,7 +896,7 @@ export async function applyIngest(
     const nodeIds = new Set(
       flattenNodes(widget.definition.nodes).map((n) => n.id),
     );
-    const merged = { ...(widget.snapshot.data.content ?? {}) };
+    const merged = { ...widget.snapshot.data.content };
     for (const [id, value] of Object.entries(clean)) {
       if (!nodeIds.has(id)) continue;
       const previous = merged[id] ?? { text: '', label: '', value: '', items: [] };
@@ -921,7 +922,7 @@ export async function applyIngest(
       await write(
         owner,
         widget,
-        { snapshot, title },
+        input.title ? { snapshot, title } : { snapshot },
         crypto.randomUUID(),
         false,
       ),

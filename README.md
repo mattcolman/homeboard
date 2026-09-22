@@ -72,11 +72,12 @@ Apply files in order; skip any already applied.
 ## Verification
 
 ```sh
-npx tsc --noEmit
-node --test tests/*.test.mjs tests/widgets-integration.mjs
+npm run check    # typecheck + tests
+npm test         # tests only
+npm run lint     # oxlint (pre-existing baseline warnings)
 ```
 
-The integration tests run the real route handlers against SQLite with a small D1 adapter and the real migrations.
+The integration tests run the real route handlers against SQLite with a small D1 adapter and the real migrations. They cover the widget board lifecycle, the CalDAV connection and reminder sync, the push-ingest endpoint, and weather location/forecast handling.
 
 ## Layout
 

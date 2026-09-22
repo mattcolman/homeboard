@@ -8,6 +8,7 @@ await copyFile(
 const files = {
   model: 'app/lib/widgets/model.ts',
   generation: 'app/lib/widgets/generation.ts',
+  'curate-shopping': 'app/lib/widgets/curate-shopping.ts',
   store: 'app/lib/widgets/store.ts',
   calendar: 'app/lib/calendar/icloud.ts',
   local: 'app/lib/calendar/local.ts',
@@ -15,6 +16,7 @@ const files = {
   recipes: 'app/lib/recipes.ts',
   db: 'app/lib/db.ts',
   route: 'app/api/widgets/route.ts',
+  ingest: 'app/api/ingest/route.ts',
 };
 for (const [name, file] of Object.entries(files)) {
   let source = ts.transpileModule(await readFile(file, 'utf8'), {
@@ -34,6 +36,7 @@ for (const [name, file] of Object.entries(files)) {
     '../recipes': './recipes.mjs',
     './recipes': './recipes.mjs',
     './generation': './generation.mjs',
+    './curate-shopping': './curate-shopping.mjs',
     './model': './model.mjs',
     '@/app/lib/widgets/store': './store.mjs',
     '@/app/lib/recipes': './recipes.mjs',
