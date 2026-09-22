@@ -123,12 +123,14 @@
   border-color: transparent;
   background: transparent;
 }
+/* Padding gives the corner icon badges (which overhang -13px top/right)
+   room inside the scroll clip, and keeps footer shadows/menus off the edge. */
 .widget-board-viewport {
   flex: 1;
   min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
-  padding-bottom: 0;
+  padding: 16px 16px 16px 0;
 }
 .widget-grid {
   display: grid;
@@ -407,6 +409,12 @@
   overflow: hidden;
   margin-top: 16px;
 }
+/* Overflowing cards fade out instead of slicing a row mid-glyph; focus mode
+   scrolls instead. */
+.hb-widget:not(.is-focused) .widget-body.is-overflowing {
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 34px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 34px), transparent);
+}
 .widget-body > div {
   min-width: 0;
 }
@@ -453,15 +461,6 @@
   border: 0;
   color: inherit;
 }
-.homeboard-app .widget-more {
-  justify-content: space-between;
-  border: 0;
-  background: #eef2f6;
-  color: #0430eb;
-  flex: none;
-  margin-top: 8px;
-  min-height: 48px;
-}
 .widget-list {
   margin: 0;
 }
@@ -494,6 +493,10 @@
   justify-content: space-between;
   gap: 14px;
   font-size: 1rem;
+}
+.widget-chart > div > div > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .widget-bar {
   height: 10px;
@@ -1385,8 +1388,7 @@
 .is-small .widget-label,
 .is-small .widget-footer time,
 .is-small .widget-metric > span,
-.is-small .widget-metric > p,
-.is-small .widget-more {
+.is-small .widget-metric > p {
   display: none;
 }
 .is-small h2 {

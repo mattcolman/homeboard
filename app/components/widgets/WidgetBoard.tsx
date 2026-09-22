@@ -1103,7 +1103,10 @@ function WidgetShell({
           </div>
         </details>
       </header>
-      <div ref={body} className="widget-body">
+      <div
+        ref={body}
+        className={`widget-body${overflow && !focus ? ' is-overflowing' : ''}`}
+      >
         <div ref={content}>
           <WidgetBoundary key={widget.definitionId}>{children}</WidgetBoundary>
         </div>
@@ -1130,12 +1133,6 @@ function WidgetShell({
           {focus ? <X /> : <Expand />}
         </button>
       </footer>
-      {overflow && !focus && (
-        <button className="widget-more" onClick={() => onFocus(widget.id)}>
-          Open full widget
-          <ChevronRight />
-        </button>
-      )}
       {focus && !!widget.snapshot.sources.length && (
         <details className="widget-sources">
           <summary>Sources</summary>

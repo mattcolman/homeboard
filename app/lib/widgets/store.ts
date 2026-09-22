@@ -32,9 +32,10 @@ import {
 
 const db = () => (env as unknown as { DB: D1Database }).DB;
 // Bound widgets wear their kind's palette tone; ingest widgets colour by
-// source (golf → emerald) and other pushed cards default to violet.
+// source (golf → emerald) and other pushed cards default to violet. The
+// calendar stays cream so the agenda matches the full-screen calendar.
 const BOUND_TONES: Record<string, Tone> = {
-  calendar: 'indigo',
+  calendar: 'cream',
   weather: 'sky',
   shopping: 'green',
   chores: 'amber',
@@ -271,7 +272,7 @@ export async function loadBoard(
     await make(
       'agenda',
       'Everyone’s day',
-      baseDefinition('calendar', 'indigo'),
+      baseDefinition('calendar'),
       await calendarSnapshot(owner),
       'tall',
       { type: 'calendar' },

@@ -19,9 +19,10 @@ export function SiteNav() {
           href={href}
           className={pathname === href ? 'is-active' : ''}
           aria-current={pathname === href ? 'page' : undefined}
+          aria-label={label}
+          title={label}
         >
           <Icon />
-          <span>{label}</span>
         </Link>
       ))}
     </nav>
