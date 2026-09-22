@@ -14,6 +14,16 @@ Ideas we'd like to pursue, roughly in the order they might be tackled. Nothing h
 [x] Chores widget - utilisng the family member names (users) feature above — Chores widget with per-row assignee chips, touch add row, "start a new round" reset, and a voice `add_chore` tool.
 [x] User defined widgets - mostly done - see USER_DEFINED_WIDGETS.md - it's still listed as a spike — `/api/ingest` + golf connector are live; `install-golf-sync.sh` schedules the sync daily via launchd. Remaining: point `INGEST_URL`/`HOMEBOARD_OWNER` at the deployed app.
 
+## Generative output (vision work)
+[] Output decision layer — route each request to the right output mode: spoken answer, generated visual, or board widget. This is where the "never a wall of text" rule lives. Needs heuristics for which mode fits (quick fact → voice; structured/persistent data → visual; worth keeping → widget) plus a graceful fallback when generation fails.
+[] Artifacts — generated HTML answers rendered in the existing isolated frame and saved as "artifacts" (distinct from board widgets): storage model, reopen/refine, expiry. Includes the promotion path: artifact → "keep this" → persists as a widget. CustomWidget/generation already cover generation + sandboxed rendering; the new work is the ephemeral-artifact concept and lifecycle.
+[] Artifact + widget freshness — stale data on a shared screen erodes trust. Every artifact/widget should show when its data was last updated, and persisted widgets need a refresh/re-sync story.
+[] Voice reliability on the target iPad — vision.md flags mic interaction and Safari behaviour as unverified. If voice is the front door this is a launch blocker: push-to-talk reliability, latency, interruption handling, kitchen noise.
+
+## Browser connectors (in-app browser)
+[] Complete the browser connector work — `spike/browser/` has `handoff-login.mjs`, `golf-sync.mjs`, `discover-api.mjs`; the golf connector already syncs via `/api/ingest` on a launchd schedule. Remaining to make this general: in-app handoff UX (hosted browser login link → user completes auth → return), encrypted `storageState` persistence alongside existing credentials, session-expiry detection with a re-handoff prompt, and a generic connector shape so new sites aren't one-off scripts.
+[] Access rules for auth-backed data — once connectors work, anyone in earshot can ask for data behind the household's logins. Decide which family members can request/view which connectors' data on a shared screen (vision already commits to "access to private household context should respect who is asking").
+
 ## Calendar improvements
 [x] Full screen view should show a full screen calendar with no other widgets — `/calendar` is a dedicated full-screen surface.
 [x] Support a weekly and monthly view — Week and Month tabs on `/calendar`.
