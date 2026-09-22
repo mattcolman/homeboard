@@ -611,6 +611,148 @@ function WeatherBody({ widget, focus }: { widget: Widget; focus: boolean }) {
   );
 }
 
+function ChoresBody({
+  widget,
+  focus,
+  action,
+  members,
+  offline,
+}: {
+  widget: Widget;
+  focus: boolean;
+  action: WidgetAction;
+  members: FamilyMember[];
+  offline: boolean;
+}) {
+  const [draft, setDraft] = useState('');
+  const [draftMember, setDraftMember] = useState('');
+  const chores = widget.snapshot.data.chores ?? [];
+  const checked = new Set(widget.state.checked ?? []);
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const nextAssignee = (memberId?: string) => {
+    if (!members.length) return '';
+    const index = members.findIndex((m) => m.id === memberId);
+    return members[index + 1]?.id ?? '';
+  };
+  const add = () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    void action(widget, 'add_chores', {
+      items: [{ text, member: draftMember || undefined }],
+    });
+  };
+  return (
+    <div className="widget-checklist chores-widget">
+      {chores.map((chore) => {
+        const member = chore.memberId
+          ? memberById.get(chore.memberId)
+          : undefined;
+        return (
+          <div className="chore-row" key={chore.id}>
+            <label>
+              <input
+                disabled={offline}
+                type="checkbox"
+                checked={checked.has(chore.id)}
+                onChange={() =>
+                  void action(widget, 'toggle_checked', { item: chore.id })
+                }
+              />
+              <span>{chore.text}</span>
+            </label>
+            {!!members.length && (
+              <button
+                type="button"
+                className="chore-assignee"
+                disabled={offline}
+                style={member ? { background: member.color } : undefined}
+                title={
+                  member
+                    ? `${member.name} — tap to reassign`
+                    : 'Tap to assign a family member'
+                }
+                onClick={() =>
+                  void action(widget, 'assign_chore', {
+                    item: chore.id,
+                    member: nextAssignee(chore.memberId),
+                  })
+                }
+              >
+                {member ? member.emoji || member.name.slice(0, 1) : '+'}
+              </button>
+            )}
+            {focus && (
+              <button
+                type="button"
+                className="chore-remove"
+                disabled={offline}
+                aria-label={`Remove ${chore.text}`}
+                onClick={() =>
+                  void action(widget, 'remove_chore', { item: chore.id })
+                }
+              >
+                <X />
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {!chores.length && (
+        <p className="widget-text">
+          No chores yet.
+          <br />
+          “Add take out the bins for Matt.”
+        </p>
+      )}
+      <div className="chore-add">
+        <input
+          disabled={offline}
+          value={draft}
+          maxLength={200}
+          placeholder="New chore"
+          aria-label="New chore"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') add();
+          }}
+        />
+        {!!members.length && (
+          <select
+            disabled={offline}
+            value={draftMember}
+            aria-label="Assign to"
+            onChange={(event) => setDraftMember(event.target.value)}
+          >
+            <option value="">Anyone</option>
+            {members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          disabled={offline || !draft.trim()}
+          aria-label="Add chore"
+          onClick={add}
+        >
+          <Plus />
+        </button>
+      </div>
+      {!!checked.size && (
+        <button
+          disabled={offline}
+          className="quiet-button"
+          onClick={() => void action(widget, 'clear_checked')}
+        >
+          Start a new round
+        </button>
+      )}
+    </div>
+  );
+}
+
 function WidgetContent({
   widget,
   focus,
@@ -652,6 +794,8 @@ function WidgetContent({
     return <CalendarBody widget={widget} focus={focus} members={members} />;
   if (widget.definition.kind === 'weather')
     return <WeatherBody widget={widget} focus={focus} />;
+  if (widget.definition.kind === 'chores')
+    return <ChoresBody {...{ widget, focus, action, members, offline }} />;
   if (widget.definition.kind === 'library')
     return <LibraryBody {...{ widget, action, onRecipe, offline }} />;
   if (widget.definition.kind === 'shopping') {

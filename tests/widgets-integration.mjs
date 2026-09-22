@@ -41,8 +41,8 @@ async function act(widget, action, extra = {}) {
   ).widget;
 }
 const first = await call();
-assert.equal(first.widgets.length, 6);
-assert.equal((await call()).widgets.length, 6);
+assert.equal(first.widgets.length, 7);
+assert.equal((await call()).widgets.length, 7);
 const weather = first.widgets.find((w) => w.definition.kind === 'weather');
 assert.ok(
   weather.snapshot.data.weather || weather.snapshot.data.weatherError,

@@ -655,6 +655,16 @@ export default function Homeboard() {
         const result = await action(list, 'add_items', { items: args.items });
         if (!result) throw Error('The shopping list was not changed.');
         output = { added: true };
+      } else if (item.name === 'add_chore') {
+        const list = boardRef.current?.widgets.find(
+          (w) => w.definition.kind === 'chores' && !w.archived,
+        );
+        if (!list) throw Error('Restore your chores widget first.');
+        const result = await action(list, 'add_chores', {
+          items: [{ text: args.text, member: args.member }],
+        });
+        if (!result) throw Error('The chores list was not changed.');
+        output = { added: true };
       } else if (item.name === 'get_calendar_events') {
         const calendar = boardRef.current?.widgets.find(
           (widget) => !widget.archived && widget.definition.kind === 'calendar',

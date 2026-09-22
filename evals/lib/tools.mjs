@@ -192,6 +192,18 @@ export class ToolExecutor {
         return { added: true };
       }
 
+      case 'add_chore': {
+        const list = (await this.#widgets()).find(
+          (w) => w.definition.kind === 'chores' && !w.archived,
+        );
+        if (!list) throw Error('Restore your chores widget first.');
+        const result = await this.board.act(list.id, 'add_chores', {
+          items: [{ text: args.text, member: args.member }],
+        });
+        if (!result) throw Error('The chores list was not changed.');
+        return { added: true };
+      }
+
       case 'get_calendar_events': {
         const calendar = (await this.#widgets()).find(
           (w) => w.definition.kind === 'calendar',

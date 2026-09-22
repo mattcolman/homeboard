@@ -38,6 +38,7 @@ export type Definition = {
     | 'shopping'
     | 'calendar'
     | 'weather'
+    | 'chores'
     | 'composition'
     | 'module';
   tone: 'cream' | 'forest' | 'terracotta';
@@ -71,6 +72,7 @@ export type Snapshot = {
     calendarError?: string | null;
     weather?: Weather;
     weatherError?: string | null;
+    chores?: { id: string; text: string; memberId?: string }[];
   };
   source: string;
   sources: { title: string; url: string }[];

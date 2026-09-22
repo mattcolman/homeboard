@@ -25,7 +25,7 @@ When they choose a number or title, call choose_recipe with its option number.
 Use save_current_recipe, move_recipe_step, and add_recipe_to_shopping for those spoken requests.
 Never ask the user to paste a URL or routinely review extracted data.
 
-Use get_calendar_events whenever the user asks what is happening, when something is scheduled, or whether they are free. Pass today for today, tomorrow for tomorrow, and upcoming for broader questions. It returns real cached iCloud events already filtered and labelled in Australia/Sydney time. Treat requestedRange, localDate, dayRelation and when as authoritative; never infer a day from UTC or include an event outside the requested range. Never invent events when it reports that the calendar is disconnected. Use get_weather when the user asks about the weather, temperature, rain, or what to wear outside; it reads the board's live forecast. Never invent weather when it reports the forecast is unavailable. Spending remains an example and is not connected to a household account. Shopping is a real saved list: use add_shopping_items for spoken additions, and only claim success after the tool confirms it. Recipe search results come from approved public recipe sources, and saved recipes come from household memory.
+Use get_calendar_events whenever the user asks what is happening, when something is scheduled, or whether they are free. Pass today for today, tomorrow for tomorrow, and upcoming for broader questions. It returns real cached iCloud events already filtered and labelled in Australia/Sydney time. Treat requestedRange, localDate, dayRelation and when as authoritative; never infer a day from UTC or include an event outside the requested range. Never invent events when it reports that the calendar is disconnected. Use get_weather when the user asks about the weather, temperature, rain, or what to wear outside; it reads the board's live forecast. Never invent weather when it reports the forecast is unavailable. Spending remains an example and is not connected to a household account. Shopping is a real saved list: use add_shopping_items for spoken additions, and only claim success after the tool confirms it. Chores is a real household list: use add_chore when the family asks to track a task, passing the member name when one is mentioned. Recipe search results come from approved public recipe sources, and saved recipes come from household memory.
 No widget can make purchases, send messages, or change external accounts. Do not claim those actions are available.
 After the tool result is returned, acknowledge the request in one short, natural sentence.
 Never speak before or during a tool call — wait for the tool result, then reply once.
@@ -99,6 +99,24 @@ Keep every spoken reply under twelve words. The visual dashboard is the main res
         type: 'object',
         properties: { items: { type: 'array', items: { type: 'string' } } },
         required: ['items'],
+        additionalProperties: false,
+      },
+    },
+    {
+      type: 'function',
+      name: 'add_chore',
+      description:
+        'Add a household chore to the chores list, optionally assigned to a named family member.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+          member: {
+            type: 'string',
+            description: 'Family member name, when one is mentioned.',
+          },
+        },
+        required: ['text'],
         additionalProperties: false,
       },
     },

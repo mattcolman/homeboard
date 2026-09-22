@@ -313,6 +313,14 @@ export async function loadBoard(
       { type: 'shopping' },
     );
     await make(
+      'chores',
+      'Chores',
+      baseDefinition('chores'),
+      emptySnapshot('Household chores', { chores: [] }),
+      'standard',
+      { type: 'chores' },
+    );
+    await make(
       'welcome',
       'Make room for an idea',
       {
@@ -336,24 +344,52 @@ export async function loadBoard(
     recipes = await listRecipes();
   // Boards created before the weather widget existed get one too — unless the
   // household already removed it (an archived copy still counts as known).
-  if (!widgets.some((w) => w.binding.type === 'weather')) {
+  // Migrated widgets reuse the seeded deterministic id so a concurrent
+  // loadBoard in another tab cannot create a duplicate.
+  for (const [bindingType, id, make] of [
+    [
+      'weather',
+      `initial-${scope.slice(0, 20)}-weather`,
+      async () => ({
+        title: 'Weather',
+        definition: baseDefinition('weather'),
+        snapshot: await weatherSnapshot(weatherPlace(request)),
+      }),
+    ],
+    [
+      'chores',
+      `initial-${scope.slice(0, 20)}-chores`,
+      async () => ({
+        title: 'Chores',
+        definition: baseDefinition('chores'),
+        snapshot: emptySnapshot('Household chores', { chores: [] }),
+      }),
+    ],
+  ] as const) {
+    if (widgets.some((w) => w.binding.type === bindingType)) continue;
     const known = await db()
       .prepare(
-        `SELECT 1 FROM widget_instances WHERE owner_id=? AND binding_json LIKE '%"type":"weather"%' LIMIT 1`,
+        `SELECT 1 FROM widget_instances WHERE owner_id=? AND binding_json LIKE ? LIMIT 1`,
       )
-      .bind(owner)
+      .bind(owner, `%"type":"${bindingType}"%`)
       .first();
-    if (!known)
+    if (known) continue;
+    try {
       widgets.push(
         await createWidget(owner, {
-          title: 'Weather',
-          definition: baseDefinition('weather'),
-          snapshot: await weatherSnapshot(weatherPlace(request)),
+          ...(await make()),
+          id,
           size: 'standard',
           pinned: true,
-          binding: { type: 'weather' },
+          binding: { type: bindingType },
         }),
       );
+    } catch (error) {
+      // A concurrent loadBoard won the insert; the widget is already there.
+      const existing = await getWidget(owner, id).catch(() => null);
+      if (existing) widgets.push(existing);
+      else throw error;
+    }
   }
   for (let i = 0; i < widgets.length; i++) {
     const widget = widgets[i];
@@ -1207,7 +1243,125 @@ export async function actOnWidget(
       );
       return syncShopping(owner, written, true);
     }
+    case 'add_chores': {
+      if (current.definition.kind !== 'chores')
+        throw new WidgetError('Choose the chores list first.');
+      const items = input.items;
+      if (!Array.isArray(items) || items.length > 50)
+        throw new WidgetError('The chores are invalid.');
+      const members = await listMembers(owner);
+      const memberFor = (value: unknown) => {
+        if (typeof value !== 'string' || !value.trim()) return undefined;
+        const key = normaliseQuery(value);
+        return (
+          members.find((m) => m.id === value) ??
+          members.find((m) => normaliseQuery(m.name) === key)
+        )?.id;
+      };
+      const previous = current.snapshot.data.chores ?? [];
+      const texts = new Set(previous.map((x) => normaliseQuery(x.text)));
+      const added: { id: string; text: string; memberId?: string }[] = [];
+      for (const raw of items) {
+        const named =
+          typeof raw === 'object' && raw !== null
+            ? (raw as { text?: unknown; member?: unknown })
+            : {};
+        const text = (
+          typeof raw === 'string' ? raw
+          : typeof named.text === 'string' ? named.text
+          : ''
+        )
+          .trim()
+          .slice(0, 200);
+        const key = normaliseQuery(text);
+        if (!key || texts.has(key)) continue;
+        texts.add(key);
+        const memberId = memberFor(named.member);
+        added.push({
+          id: crypto.randomUUID(),
+          text,
+          ...(memberId ? { memberId } : {}),
+        });
+      }
+      if (previous.length + added.length > 60)
+        throw new WidgetError(
+          'The chores list is full. Clear finished chores first.',
+        );
+      return write(
+        owner,
+        current,
+        {
+          snapshot: emptySnapshot('Household chores', {
+            chores: [...previous, ...added],
+          }),
+        },
+        mutationId,
+      );
+    }
+    case 'remove_chore': {
+      if (current.definition.kind !== 'chores')
+        throw new WidgetError('Choose the chores list first.');
+      const item = typeof input.item === 'string' ? input.item : '';
+      const chores = current.snapshot.data.chores ?? [];
+      if (!chores.some((c) => c.id === item))
+        throw new WidgetError('That chore is already gone.');
+      return write(
+        owner,
+        current,
+        {
+          snapshot: emptySnapshot('Household chores', {
+            chores: chores.filter((c) => c.id !== item),
+          }),
+          state: {
+            ...current.state,
+            checked: (current.state.checked ?? []).filter(
+              (id) => id !== item,
+            ),
+          },
+        },
+        mutationId,
+      );
+    }
+    case 'assign_chore': {
+      if (current.definition.kind !== 'chores')
+        throw new WidgetError('Choose the chores list first.');
+      const item = typeof input.item === 'string' ? input.item : '';
+      const chores = current.snapshot.data.chores ?? [];
+      if (!chores.some((c) => c.id === item))
+        throw new WidgetError('That chore is already gone.');
+      const memberValue =
+        typeof input.member === 'string' ? input.member : '';
+      const member = (await listMembers(owner)).find(
+        (m) =>
+          m.id === memberValue ||
+          normaliseQuery(m.name) === normaliseQuery(memberValue),
+      );
+      return write(
+        owner,
+        current,
+        {
+          snapshot: emptySnapshot('Household chores', {
+            chores: chores.map((c) =>
+              c.id !== item ? c
+              : member ? { ...c, memberId: member.id }
+              : { id: c.id, text: c.text },
+            ),
+          }),
+        },
+        mutationId,
+      );
+    }
     case 'clear_checked': {
+      if (current.definition.kind === 'chores') {
+        // Chores recur — clearing starts a fresh round instead of
+        // deleting the chores themselves.
+        return write(
+          owner,
+          current,
+          { state: { ...current.state, checked: [] } },
+          mutationId,
+        );
+      }
       if (current.definition.kind !== 'shopping')
         throw new WidgetError('Choose the shopping list first.');
       const items = current.snapshot.data.items ?? [],
