@@ -5,13 +5,23 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PROFILE = new URL('./chrome-profile', import.meta.url).pathname;
+const CHROME =
+  process.env.GOLF_CHROME ??
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const PROFILE =
+  process.env.GOLF_CHROME_PROFILE ??
+  new URL('./chrome-profile', import.meta.url).pathname;
 const INGEST_URL = process.env.INGEST_URL ?? 'http://localhost:3000/api/ingest';
 const OWNER = process.env.HOMEBOARD_OWNER ?? 'homeboard-local-development';
 const WAIT_MS = 30_000;
 
-const envLocal = readFileSync(new URL('../../.env.local', import.meta.url), 'utf8');
+const envLocal = (() => {
+  try {
+    return readFileSync(new URL('../../.env.local', import.meta.url), 'utf8');
+  } catch {
+    return '';
+  }
+})();
 const KEY =
   process.env.HOMEBOARD_INGEST_KEY ??
   envLocal.match(/^HOMEBOARD_INGEST_KEY=(.+)$/m)?.[1]?.trim();

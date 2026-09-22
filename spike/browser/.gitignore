@@ -7,3 +7,4 @@ chrome-profile/
 .open.json
 login-capture.json
 discovery.json
+*.log
