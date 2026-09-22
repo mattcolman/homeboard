@@ -1,0 +1,12 @@
+{
+  "name": "homeboard-evals",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "node run.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.11.0",
+    "ws": "^8.18.3"
+  }
+}
