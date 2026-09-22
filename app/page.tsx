@@ -39,6 +39,7 @@ import {
   type CalendarRange,
 } from './lib/calendar/local';
 import LegacyHome from './legacy-home';
+import { SiteNav } from './components/SiteNav';
 import './widgets.css';
 
 type Voice =
@@ -887,6 +888,7 @@ export default function Homeboard() {
             Homeboard<small>Your household, at a glance</small>
           </div>
         </button>
+        <SiteNav />
         <div className="homeboard-header-actions">
           {offline && (
             <span className="offline-badge">

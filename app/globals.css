@@ -16,3 +16,42 @@
 @media(max-width:1050px){.dashboard-grid{grid-template-columns:1fr 1fr}.spend-panel{grid-row:auto}.dinner-panel{min-height:320px}.focus-grid{grid-template-columns:1fr}.focus-aside{grid-template-columns:1fr 1fr;grid-template-rows:auto}.focus-card.spend-panel .spend-chart{gap:35px}}
 @media(max-width:700px){.dashboard-grid{grid-template-columns:1fr}.schedule-panel{grid-row:auto}.panel{border-radius:20px}.dinner-panel{min-height:330px}.spend-chart{justify-content:center}.ask-bar{border-radius:22px}.prompt-chip{display:none}.voice-status{display:inline-flex}.focus-aside{grid-template-columns:1fr}.focus-card.spend-panel{padding:22px}.focus-card.spend-panel .spend-chart{gap:20px}.focus-card.spend-panel .donut{width:125px;height:125px}.focus-card.spend-panel .donut>div{width:76px;height:76px}.focus-card.spend-panel .donut strong{font-size:22px}.focus-card.spend-panel .legend-row{min-width:0;font-size:11px}.focus-card.dinner-panel .food-visual{right:-42px;transform:scale(1)}}
 .recipe-choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;animation:viewIn .38s ease}.recipe-choice{overflow:hidden;border:1px solid var(--border);border-radius:24px;background:var(--card);box-shadow:0 8px 30px rgba(15,23,42,.05)}.recipe-choice>img,.recipe-image-placeholder{width:100%;height:210px;object-fit:cover;background:#e4eaf1}.recipe-image-placeholder{display:grid;place-items:center;color:var(--accent)}.recipe-choice-copy{padding:21px}.recipe-number{color:var(--accent);font-size:10px;font-weight:800;letter-spacing:.11em;text-transform:uppercase}.recipe-choice h2,.recipe-empty h2,.ingredient-card h2,.method-card h2{margin:7px 0;font:700 25px/1.08 var(--font-display-local)}.recipe-choice p{color:var(--muted-foreground);font-size:13px;line-height:1.5}.recipe-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}.recipe-meta span{border-radius:999px;background:var(--secondary);padding:6px 9px;color:var(--secondary-foreground);font-size:10px;font-weight:800}.recipe-empty{grid-column:1/-1;display:grid;min-height:290px;place-items:center;align-content:center;border:1px dashed var(--border);border-radius:24px;text-align:center;color:var(--muted-foreground)}.recipe-detail{display:grid;grid-template-columns:minmax(260px,.7fr) minmax(0,1.3fr);gap:16px}.ingredient-card,.method-card{border:1px solid var(--border);border-radius:24px;background:var(--card);padding:25px}.ingredient-card ul{margin:20px 0 0;padding:0;list-style:none}.ingredient-card li{border-bottom:1px solid var(--border);padding:10px 0;color:var(--muted-foreground);font-size:13px}.method-card{display:flex;min-height:440px;flex-direction:column;background:#fff;color:#0e1526;border:2px solid #0f1a2b}.method-card .eyebrow{color:#3d4a5c}.method-top{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}.video-pill{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;background:#fff;padding:8px 11px;color:#0e1526;font-size:11px;font-weight:800}.video-pill svg{width:13px;height:13px}.current-step{margin:auto 0;font:700 clamp(25px,3vw,40px)/1.28 var(--font-display-local)}.step-progress{display:flex;gap:5px}.step-progress span{height:5px;flex:1;border-radius:99px;background:#e2e7ee}.step-progress span.complete{background:#0f1a2b}.method-card footer{display:flex;justify-content:space-between;gap:12px;margin-top:20px;color:#5d6b7a;font-size:11px}.method-card footer a{color:#0430eb;font-weight:800;text-decoration:underline}@media(max-width:1050px){.recipe-choice-grid{grid-template-columns:1fr 1fr}}@media(max-width:700px){.recipe-choice-grid,.recipe-detail{grid-template-columns:1fr}.recipe-choice>img,.recipe-image-placeholder{height:180px}.method-card{min-height:360px}.method-top{display:block}.video-pill{width:max-content;margin-top:12px}}
+
+/* Primary view navigation, shared across board / calendar / photos. */
+.site-nav {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.site-nav a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  font: 700 0.8125rem/1 var(--font-sans-local);
+  text-decoration: none;
+}
+.site-nav a:hover {
+  color: var(--foreground);
+}
+.site-nav a.is-active {
+  background: #0e1526;
+  color: #fff;
+}
+.site-nav a svg {
+  width: 15px;
+  height: 15px;
+}
+@media (max-width: 760px) {
+  .site-nav a span {
+    display: none;
+  }
+  .site-nav a {
+    padding: 9px 12px;
+  }
+}
