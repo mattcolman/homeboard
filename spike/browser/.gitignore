@@ -1,0 +1,9 @@
+node_modules/
+.dev.vars
+.wrangler/
+.session*.json
+*.png
+chrome-profile/
+.open.json
+login-capture.json
+discovery.json
