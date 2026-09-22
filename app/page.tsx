@@ -348,7 +348,7 @@ export default function Homeboard() {
         replaceWidget(result.widget);
         if (kind === 'save_recipe') {
           await loadBoard();
-          setMessage('Recipe saved to your family favourites.');
+          setMessage('Recipe saved to your recipes.');
         }
         if (kind === 'remove') {
           setLastRemoved(result.widget);
@@ -432,7 +432,10 @@ export default function Homeboard() {
     if (!list)
       throw Error('Restore your shopping widget before adding ingredients.');
     const ingredients = widget.snapshot.data.recipe?.ingredients ?? [];
-    const result = await action(list, 'add_items', { items: ingredients });
+    const result = await action(list, 'add_items', {
+      items: ingredients,
+      source: 'recipe',
+    });
     if (!result) throw Error('The shopping list was not changed.');
     setMessage('Ingredients added to your shopping list.');
     return result;
@@ -510,7 +513,9 @@ export default function Homeboard() {
                 ? w.definition.kind === 'library'
                 : args.view === 'schedule'
                   ? w.title === 'Everyone’s day'
-                  : w.title === 'Monthly spending'),
+                  : args.view === 'weather'
+                    ? w.definition.kind === 'weather'
+                    : w.title === 'Monthly spending'),
           );
           if (!target) throw Error('That widget is not on the board.');
           showFocus(target.id);
@@ -672,6 +677,37 @@ export default function Homeboard() {
             ),
           };
           showFocus(calendar.id);
+        }
+      } else if (item.name === 'get_weather') {
+        const widget = boardRef.current?.widgets.find(
+          (w) => !w.archived && w.definition.kind === 'weather',
+        );
+        const weather = widget?.snapshot.data.weather;
+        if (!widget || !weather) {
+          output = {
+            available: false,
+            message: 'The weather forecast is not on the board yet.',
+          };
+        } else {
+          output = {
+            available: true,
+            place: weather.place,
+            updatedAt: widget.snapshot.fetchedAt,
+            now: {
+              temperature: Math.round(weather.temperature),
+              feelsLike: Math.round(weather.feelsLike),
+              condition: weather.condition,
+              windKmh: Math.round(weather.windKmh),
+            },
+            days: weather.days.map((day) => ({
+              date: day.date,
+              condition: day.condition,
+              high: Math.round(day.high),
+              low: Math.round(day.low),
+              rainChance: day.rainChance,
+            })),
+          };
+          showFocus(widget.id);
         }
       } else throw Error('That action is not supported.');
       reply(item.call_id, output);

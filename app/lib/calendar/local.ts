@@ -1,6 +1,12 @@
 import type { CalendarEvent } from '../widgets/model';
 
 export const HOME_TIME_ZONE = 'Australia/Sydney';
+/** Fallback weather location when the request carries no Cloudflare geo. */
+export const HOME_PLACE = {
+  name: 'Sydney',
+  latitude: -33.8688,
+  longitude: 151.2093,
+};
 export type CalendarRange = 'today' | 'tomorrow' | 'upcoming';
 
 export function localDateKey(value: string | Date) {

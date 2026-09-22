@@ -16,11 +16,22 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  CloudMoon,
+  CloudRain,
+  CloudSnow,
+  CloudSun,
   Expand,
+  Moon,
   MoreHorizontal,
   Pin,
+  Plus,
   RefreshCw,
   ShoppingBasket,
+  Sun,
   Undo2,
   X,
 } from 'lucide-react';
@@ -303,6 +314,120 @@ function RecipeBody({
   );
 }
 
+function LibraryBody({
+  widget,
+  action,
+  onRecipe,
+  offline,
+}: {
+  widget: Widget;
+  action: WidgetAction;
+  onRecipe: (recipe: Recipe) => void;
+  offline: boolean;
+}) {
+  const [adding, setAdding] = useState(false),
+    [url, setUrl] = useState(''),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState('');
+  const submit = async () => {
+    const value = url.trim();
+    if (!value || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      const response = await fetch('/api/recipes/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: value }),
+      });
+      const data = (await response.json()) as {
+        recipe?: Recipe;
+        error?: string;
+      };
+      if (!response.ok || !data.recipe)
+        throw Error(data.error || 'That recipe could not be imported.');
+      setUrl('');
+      setAdding(false);
+      await action(widget, 'refresh');
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'That recipe could not be imported.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="recipe-library">
+      {widget.snapshot.data.recipes?.length ? (
+        widget.snapshot.data.recipes.map((recipe) => (
+          <button key={recipe.canonicalUrl} onClick={() => onRecipe(recipe)}>
+            <span>
+              {recipe.title}
+              <small>{recipe.sourceName}</small>
+            </span>
+            <ChevronRight />
+          </button>
+        ))
+      ) : (
+        <p className="widget-text">
+          “Find me a quick dinner.”
+          <br />
+          Save a recipe to keep it here.
+        </p>
+      )}
+      {adding ? (
+        <form
+          className="recipe-add"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <input
+            type="url"
+            ref={(element) => element?.focus()}
+            required
+            value={url}
+            disabled={saving}
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder="Paste a recipe link…"
+            aria-label="Recipe link"
+          />
+          <div>
+            <button disabled={saving || !url.trim()}>
+              {saving ? 'Adding…' : 'Add recipe'}
+            </button>
+            <button
+              type="button"
+              className="quiet-button"
+              disabled={saving}
+              onClick={() => {
+                setAdding(false);
+                setError('');
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {error && <p className="widget-note">{error}</p>}
+        </form>
+      ) : (
+        <button
+          className="recipe-add-button"
+          disabled={offline}
+          onClick={() => setAdding(true)}
+        >
+          <span>Add new recipe</span>
+          <Plus />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function CalendarBody({ widget, focus }: { widget: Widget; focus: boolean }) {
   if (!widget.snapshot.data.calendarConnected)
     return (
@@ -383,6 +508,86 @@ function CalendarBody({ widget, focus }: { widget: Widget; focus: boolean }) {
   );
 }
 
+function weatherIcon(code: number, isDay = true) {
+  const Icon =
+    code <= 1
+      ? isDay
+        ? Sun
+        : Moon
+      : code === 2
+        ? isDay
+          ? CloudSun
+          : CloudMoon
+        : code === 3
+          ? Cloud
+          : code === 45 || code === 48
+            ? CloudFog
+            : code >= 51 && code <= 57
+              ? CloudDrizzle
+              : (code >= 61 && code <= 67) || (code >= 80 && code <= 82)
+                ? CloudRain
+                : (code >= 71 && code <= 77) || code === 85 || code === 86
+                  ? CloudSnow
+                  : CloudLightning;
+  return <Icon />;
+}
+
+function WeatherBody({ widget, focus }: { widget: Widget; focus: boolean }) {
+  const weather = widget.snapshot.data.weather,
+    error = widget.snapshot.data.weatherError;
+  if (!weather)
+    return (
+      <div className="calendar-empty">
+        <CloudSun />
+        <p>{error ?? 'The weather is still loading.'}</p>
+      </div>
+    );
+  const today = weather.days[0],
+    days = weather.days.slice(1, focus ? 6 : 4);
+  const dayName = (date: string) =>
+    new Intl.DateTimeFormat('en-AU', { weekday: 'short' }).format(
+      new Date(`${date}T12:00:00`),
+    );
+  return (
+    <div className="weather-widget">
+      {error && <p className="calendar-warning">{error}</p>}
+      <div className="weather-now">
+        {weatherIcon(weather.code, weather.isDay)}
+        <strong>{Math.round(weather.temperature)}°</strong>
+        <div>
+          <span>{weather.condition}</span>
+          {today && (
+            <small>
+              H {Math.round(today.high)}° · L {Math.round(today.low)}°
+              {today.rainChance > 0 ? ` · ${today.rainChance}% rain` : ''}
+            </small>
+          )}
+        </div>
+      </div>
+      {focus && (
+        <p className="widget-note">
+          Feels like {Math.round(weather.feelsLike)}° · Wind{' '}
+          {Math.round(weather.windKmh)} km/h · {weather.place}
+        </p>
+      )}
+      <div className="weather-days">
+        {days.map((day) => (
+          <div className="weather-day" key={day.date}>
+            <span>{dayName(day.date)}</span>
+            {weatherIcon(day.code)}
+            <small>
+              {Math.round(day.low)}°–{Math.round(day.high)}°
+            </small>
+            {day.rainChance >= 20 && (
+              <small className="weather-rain">{day.rainChance}%</small>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function WidgetContent({
   widget,
   focus,
@@ -420,45 +625,45 @@ function WidgetContent({
     return <RecipeBody {...{ widget, focus, action, onShopping, offline }} />;
   if (widget.definition.kind === 'calendar')
     return <CalendarBody widget={widget} focus={focus} />;
+  if (widget.definition.kind === 'weather')
+    return <WeatherBody widget={widget} focus={focus} />;
   if (widget.definition.kind === 'library')
-    return (
-      <div className="recipe-library">
-        {widget.snapshot.data.recipes?.length ? (
-          widget.snapshot.data.recipes.map((recipe) => (
-            <button key={recipe.canonicalUrl} onClick={() => onRecipe(recipe)}>
-              <span>
-                {recipe.title}
-                <small>{recipe.sourceName}</small>
-              </span>
-              <ChevronRight />
-            </button>
-          ))
-        ) : (
-          <p className="widget-text">
-            “Find me a quick dinner.”
-            <br />
-            Save a recipe to keep it here.
-          </p>
-        )}
-      </div>
+    return <LibraryBody {...{ widget, action, onRecipe, offline }} />;
+  if (widget.definition.kind === 'shopping') {
+    const items = widget.snapshot.data.items ?? [];
+    const renderItem = (item: (typeof items)[number]) => (
+      <label key={item.id}>
+        <input
+          disabled={offline}
+          type="checkbox"
+          checked={widget.state.checked?.includes(item.id) ?? false}
+          onChange={() =>
+            void action(widget, 'toggle_checked', { item: item.id })
+          }
+        />
+        <span>{item.text}</span>
+      </label>
     );
-  if (widget.definition.kind === 'shopping')
+    const groups = new Map<string, typeof items>();
+    for (const item of items) {
+      const category = item.category?.trim() || '';
+      const group = groups.get(category);
+      if (group) group.push(item);
+      else groups.set(category, [item]);
+    }
     return (
       <div className="widget-checklist">
-        {widget.snapshot.data.items?.length ? (
-          widget.snapshot.data.items.map((item) => (
-            <label key={item.id}>
-              <input
-                disabled={offline}
-                type="checkbox"
-                checked={widget.state.checked?.includes(item.id) ?? false}
-                onChange={() =>
-                  void action(widget, 'toggle_checked', { item: item.id })
-                }
-              />
-              <span>{item.text}</span>
-            </label>
-          ))
+        {items.length ? (
+          items.some((item) => item.category) ? (
+            [...groups].map(([category, group]) => (
+              <div className="shopping-group" key={category || 'other'}>
+                {!!category && <h5>{category}</h5>}
+                {group.map(renderItem)}
+              </div>
+            ))
+          ) : (
+            items.map(renderItem)
+          )
         ) : (
           <p className="widget-text">
             Nothing on the list yet.
@@ -477,6 +682,7 @@ function WidgetContent({
         )}
       </div>
     );
+  }
   const composition = (
     <Composition
       widget={widget}

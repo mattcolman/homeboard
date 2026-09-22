@@ -7,8 +7,11 @@ import {
   syncShoppingItems,
 } from '../calendar/icloud';
 import { generateWidget } from './generation';
+import { curateForShopping, type CuratedItem } from './curate-shopping';
+import { weatherPlace, weatherSnapshot } from '../weather';
 import {
   isExpired,
+  isStale,
   normaliseQuery,
   packWidgets,
   SIZES,
@@ -18,6 +21,7 @@ import {
   type Board,
   type Columns,
   type Definition,
+  type LayoutNode,
   type Snapshot,
   type Widget,
   type WidgetSize,
@@ -33,13 +37,19 @@ export class WidgetError extends Error {
   }
 }
 export function ownerFor(request: Request) {
+  const local =
+    process.env.NODE_ENV === 'development' &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(new URL(request.url).hostname);
+  // Eval isolation: a separate board owner per scenario run. Dev-only, like
+  // the local fallback below — the sites runtime strips spoofable auth
+  // headers in production so this can never fire there.
+  const evalOwner = local
+    ? request.headers.get('x-homeboard-eval-owner')
+    : null;
+  if (evalOwner && /^[\w.-]{1,150}$/.test(evalOwner)) return evalOwner;
   const owner = request.headers.get('oai-authenticated-user-id');
   if (owner) return owner;
-  if (
-    process.env.NODE_ENV === 'development' &&
-    ['localhost', '127.0.0.1', '[::1]'].includes(new URL(request.url).hostname)
-  )
-    return 'homeboard-local-development';
+  if (local) return 'homeboard-local-development';
   throw new WidgetError('Sign in to open your Homeboard.', 401);
 }
 export function assertMutationOrigin(request: Request) {
@@ -217,7 +227,10 @@ export async function createWidget(
   return getWidget(owner, id);
 }
 
-export async function loadBoard(owner: string): Promise<Board> {
+export async function loadBoard(
+  owner: string,
+  request?: Request,
+): Promise<Board> {
   const count = await db()
     .prepare('SELECT COUNT(*) AS count FROM widget_instances WHERE owner_id=?')
     .bind(owner)
@@ -251,8 +264,16 @@ export async function loadBoard(owner: string): Promise<Board> {
       { type: 'calendar' },
     );
     await make(
+      'weather',
+      'Weather',
+      baseDefinition('weather'),
+      await weatherSnapshot(weatherPlace(request)),
+      'standard',
+      { type: 'weather' },
+    );
+    await make(
       'recipes',
-      'Family favourites',
+      'Recipes',
       baseDefinition('library', 'terracotta'),
       emptySnapshot('Saved recipes', { recipes }),
       'standard',
@@ -312,6 +333,27 @@ export async function loadBoard(owner: string): Promise<Board> {
   }
   const widgets = await allWidgets(owner),
     recipes = await listRecipes();
+  // Boards created before the weather widget existed get one too — unless the
+  // household already removed it (an archived copy still counts as known).
+  if (!widgets.some((w) => w.binding.type === 'weather')) {
+    const known = await db()
+      .prepare(
+        `SELECT 1 FROM widget_instances WHERE owner_id=? AND binding_json LIKE '%"type":"weather"%' LIMIT 1`,
+      )
+      .bind(owner)
+      .first();
+    if (!known)
+      widgets.push(
+        await createWidget(owner, {
+          title: 'Weather',
+          definition: baseDefinition('weather'),
+          snapshot: await weatherSnapshot(weatherPlace(request)),
+          size: 'standard',
+          pinned: true,
+          binding: { type: 'weather' },
+        }),
+      );
+  }
   for (let i = 0; i < widgets.length; i++) {
     const widget = widgets[i];
     if (
@@ -360,22 +402,32 @@ export async function loadBoard(owner: string): Promise<Board> {
       widgets[i] = await syncShopping(owner, widget, false);
       continue;
     }
-    if (
-      widget.binding.type === 'library' &&
-      JSON.stringify(widget.snapshot.data.recipes) !== JSON.stringify(recipes)
-    ) {
-      try {
-        widgets[i] = await write(
-          owner,
-          widget,
-          { snapshot: emptySnapshot('Saved recipes', { recipes }) },
-          crypto.randomUUID(),
-          false,
-        );
-      } catch (error) {
-        if (!(error instanceof WidgetError) || error.status !== 409)
-          throw error;
-        widgets[i] = await getWidget(owner, widget.id);
+    if (widget.binding.type === 'weather') {
+      widgets[i] = await syncWeather(owner, widget, false, request);
+      continue;
+    }
+    if (widget.binding.type === 'library') {
+      const changes: Changes = {};
+      if (widget.title === 'Family favourites') changes.title = 'Recipes';
+      if (
+        JSON.stringify(widget.snapshot.data.recipes) !==
+        JSON.stringify(recipes)
+      )
+        changes.snapshot = emptySnapshot('Saved recipes', { recipes });
+      if (Object.keys(changes).length) {
+        try {
+          widgets[i] = await write(
+            owner,
+            widget,
+            changes,
+            crypto.randomUUID(),
+            false,
+          );
+        } catch (error) {
+          if (!(error instanceof WidgetError) || error.status !== 409)
+            throw error;
+          widgets[i] = await getWidget(owner, widget.id);
+        }
       }
     }
   }
@@ -621,6 +673,8 @@ async function refreshWidget(
   }
   if (current.binding.type === 'shopping')
     return syncShopping(owner, current, true);
+  if (current.binding.type === 'weather')
+    return syncWeather(owner, current, true);
   if (current.binding.type === 'generated' && current.query) {
     const generated = await generateWidget(current.query, {
       definition: current.definition,
@@ -685,12 +739,196 @@ async function syncShopping(owner: string, widget: Widget, always: boolean) {
     return widget;
   }
 }
+async function syncWeather(
+  owner: string,
+  widget: Widget,
+  always: boolean,
+  request?: Request,
+) {
+  if (!always && widget.snapshot.data.weather && !isStale(widget.snapshot))
+    return widget;
+  try {
+    const snapshot = await weatherSnapshot(
+      weatherPlace(request, widget.snapshot.data.weather),
+      widget.snapshot,
+    );
+    return await write(
+      owner,
+      widget,
+      { snapshot },
+      crypto.randomUUID(),
+      false,
+    );
+  } catch (error) {
+    if (error instanceof WidgetError && error.status === 409)
+      return getWidget(owner, widget.id);
+    return widget;
+  }
+}
 export async function syncShoppingBoard(owner: string) {
   const widgets = await allWidgets(owner);
   for (const widget of widgets.filter((w) => w.binding.type === 'shopping'))
     await syncShopping(owner, widget, true);
 }
 
+type IngestItem = { label: string; value: string };
+type IngestContent = Record<
+  string,
+  { label?: string; value?: string; text?: string; items?: IngestItem[] }
+>;
+const NODE_TYPES = new Set([
+  'text',
+  'heading',
+  'metric',
+  'list',
+  'checklist',
+  'chart',
+  'comparison',
+  'steps',
+  'columns',
+  'callout',
+]);
+function flattenNodes(nodes: LayoutNode[]): LayoutNode[] {
+  return nodes.flatMap((n) => [n, ...flattenNodes(n.children)]);
+}
+/**
+ * Server-to-server push for `binding: {type:'ingest', source}` widgets.
+ * Auto-provisions a composition card on first push, then merges content into
+ * the snapshot on subsequent pushes. The producer keys content by node id.
+ */
+export async function applyIngest(
+  owner: string,
+  input: {
+    source: string;
+    title?: string;
+    nodes?: { id: string; type: string }[];
+    content: IngestContent;
+    staleHours?: number;
+  },
+): Promise<Widget[]> {
+  if (!/^[a-z0-9][\w-]{0,60}$/i.test(input.source))
+    throw new WidgetError('That source name is invalid.');
+  const content = input.content;
+  if (
+    !content ||
+    typeof content !== 'object' ||
+    Array.isArray(content) ||
+    Object.keys(content).length > 20
+  )
+    throw new WidgetError('That ingest content is invalid.');
+  const clean: IngestContent = {};
+  for (const [id, value] of Object.entries(content)) {
+    if (!/^[\w-]{1,60}$/.test(id) || !value || typeof value !== 'object')
+      throw new WidgetError('That ingest content is invalid.');
+    const item = value as NonNullable<IngestContent[string]>;
+    const text = (v: unknown, max: number) =>
+      typeof v === 'string' && v.length <= max ? v : undefined;
+    const items = Array.isArray(item.items)
+      ? item.items
+          .filter(
+            (i): i is IngestItem =>
+              !!i &&
+              typeof i === 'object' &&
+              typeof i.label === 'string' &&
+              typeof i.value === 'string' &&
+              i.label.length <= 150 &&
+              i.value.length <= 150,
+          )
+          .slice(0, 50)
+      : undefined;
+    clean[id] = {
+      label: text(item.label, 150),
+      value: text(item.value, 150),
+      text: text(item.text, 1000),
+      items,
+    };
+  }
+  const staleHours =
+    typeof input.staleHours === 'number' &&
+    Number.isFinite(input.staleHours) &&
+    input.staleHours > 0
+      ? Math.min(input.staleHours, 24 * 30)
+      : 48;
+  const title =
+    typeof input.title === 'string' && input.title.trim().length <= 100
+      ? input.title.trim()
+      : input.source;
+  let widgets = (await allWidgets(owner)).filter(
+    (w) => w.binding.type === 'ingest' && w.binding.source === input.source,
+  );
+  if (!widgets.length) {
+    const declared = (input.nodes ?? [])
+      .filter(
+        (n) =>
+          n &&
+          /^[\w-]{1,60}$/.test(n.id) &&
+          NODE_TYPES.has(n.type) &&
+          clean[n.id],
+      )
+      .slice(0, 4);
+    const nodeIds = declared.length
+      ? declared.map((n) => n.id)
+      : Object.keys(clean).slice(0, 4);
+    const types = new Map(declared.map((n) => [n.id, n.type]));
+    const definition: Definition = {
+      ...baseDefinition('composition', 'forest'),
+      nodes: nodeIds.map((id) => ({
+        id,
+        type: (types.get(id) ?? 'metric') as LayoutNode['type'],
+        children: [],
+      })),
+      summary: `Updates from ${title}.`,
+    };
+    widgets = [
+      await createWidget(owner, {
+        title,
+        definition,
+        snapshot: emptySnapshot(title),
+        binding: { type: 'ingest', source: input.source },
+        size: nodeIds.length === 1 ? 'standard' : 'tall',
+      }),
+    ];
+  }
+  const now = new Date(),
+    next: Widget[] = [];
+  for (const widget of widgets) {
+    const nodeIds = new Set(
+      flattenNodes(widget.definition.nodes).map((n) => n.id),
+    );
+    const merged = { ...(widget.snapshot.data.content ?? {}) };
+    for (const [id, value] of Object.entries(clean)) {
+      if (!nodeIds.has(id)) continue;
+      const previous = merged[id] ?? { text: '', label: '', value: '', items: [] };
+      merged[id] = {
+        text: value.text ?? previous.text,
+        label: value.label ?? previous.label,
+        value: value.value ?? previous.value,
+        items: value.items ?? previous.items,
+      };
+    }
+    const snapshot: Snapshot = {
+      ...widget.snapshot,
+      data: { ...widget.snapshot.data, content: merged },
+      source: title,
+      fetchedAt: now.toISOString(),
+      staleAt: new Date(now.getTime() + staleHours * 3_600_000).toISOString(),
+    };
+    if (JSON.stringify(snapshot) === JSON.stringify(widget.snapshot)) {
+      next.push(widget);
+      continue;
+    }
+    next.push(
+      await write(
+        owner,
+        widget,
+        { snapshot, title },
+        crypto.randomUUID(),
+        false,
+      ),
+    );
+  }
+  return next;
+}
 export async function actOnWidget(
   owner: string,
   id: string,
@@ -927,16 +1165,24 @@ export async function actOnWidget(
         items.some((x) => typeof x !== 'string' || x.length > 400)
       )
         throw new WidgetError('The shopping items are invalid.');
+      const curated: CuratedItem[] =
+        input.source === 'recipe'
+          ? await curateForShopping(items)
+          : items.map((text) => ({ text }));
       const previous = current.snapshot.data.items ?? [];
       const texts = new Set(previous.map((x) => normaliseQuery(x.text)));
-      const added = items
+      const added = curated
         .filter((x) => {
-          const key = normaliseQuery(x);
+          const key = normaliseQuery(x.text);
           if (!key || texts.has(key)) return false;
           texts.add(key);
           return true;
         })
-        .map((text) => ({ id: crypto.randomUUID(), text }));
+        .map((item) => ({
+          id: crypto.randomUUID(),
+          text: item.text,
+          ...(item.category ? { category: item.category } : {}),
+        }));
       if (previous.length + added.length > 200)
         throw new WidgetError(
           'The shopping list is full. Clear checked items first.',

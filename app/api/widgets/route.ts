@@ -35,7 +35,9 @@ function failure(error: unknown) {
 }
 export async function GET(request: Request) {
   try {
-    return Response.json(await loadBoard(ownerFor(request)), { headers });
+    return Response.json(await loadBoard(ownerFor(request), request), {
+      headers,
+    });
   } catch (error) {
     return failure(error);
   }

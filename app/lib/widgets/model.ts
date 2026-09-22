@@ -37,6 +37,7 @@ export type Definition = {
     | 'library'
     | 'shopping'
     | 'calendar'
+    | 'weather'
     | 'composition'
     | 'module';
   tone: 'cream' | 'forest' | 'terracotta';
@@ -59,6 +60,7 @@ export type Snapshot = {
     items?: {
       id: string;
       text: string;
+      category?: string;
       uid?: string;
       href?: string;
       etag?: string;
@@ -67,6 +69,8 @@ export type Snapshot = {
     calendarEvents?: CalendarEvent[];
     calendarConnected?: boolean;
     calendarError?: string | null;
+    weather?: Weather;
+    weatherError?: string | null;
   };
   source: string;
   sources: { title: string; url: string }[];
@@ -89,7 +93,7 @@ export type Widget = {
   order: number;
   layouts: Layouts;
   query: string;
-  binding: { type: string; recipeUrl?: string };
+  binding: { type: string; recipeUrl?: string; source?: string };
   offlineAllowed: boolean;
   updatedAt: string;
 };
@@ -104,6 +108,45 @@ export type CalendarEvent = {
   allDay: boolean;
   location?: string | null;
 };
+export type WeatherDay = {
+  date: string;
+  code: number;
+  condition: string;
+  high: number;
+  low: number;
+  rainChance: number;
+};
+export type Weather = {
+  place: string;
+  latitude: number;
+  longitude: number;
+  temperature: number;
+  feelsLike: number;
+  code: number;
+  condition: string;
+  isDay: boolean;
+  windKmh: number;
+  days: WeatherDay[];
+};
+/** WMO weather interpretation codes, as returned by Open-Meteo. */
+export function weatherCondition(code: number) {
+  if (code === 0) return 'Clear sky';
+  if (code === 1) return 'Mostly clear';
+  if (code === 2) return 'Partly cloudy';
+  if (code === 3) return 'Overcast';
+  if (code === 45 || code === 48) return 'Fog';
+  if (code >= 51 && code <= 57) return 'Drizzle';
+  if (code === 61 || code === 80) return 'Light rain';
+  if (code === 63 || code === 81) return 'Rain';
+  if (code === 65 || code === 82) return 'Heavy rain';
+  if (code === 66 || code === 67) return 'Freezing rain';
+  if (code === 71 || code === 85) return 'Light snow';
+  if (code === 73 || code === 75 || code === 86) return 'Snow';
+  if (code === 77) return 'Snow grains';
+  if (code === 95) return 'Thunderstorm';
+  if (code === 96 || code === 99) return 'Thunderstorm with hail';
+  return 'Unknown';
+}
 export type Board = {
   widgets: Widget[];
   cacheScope: string;

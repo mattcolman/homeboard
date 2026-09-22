@@ -807,6 +807,7 @@ export type RemoteReminder = {
 export type ShoppingSyncItem = {
   id: string;
   text: string;
+  category?: string;
   uid?: string;
   href?: string;
   etag?: string;
