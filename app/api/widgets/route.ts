@@ -8,31 +8,10 @@ import {
   WidgetError,
 } from '@/app/lib/widgets/store';
 import { parseRecipeJson } from '@/app/lib/recipes';
+import { failure, NO_STORE } from '@/app/lib/api';
 
 export const dynamic = 'force-dynamic';
-const headers = { 'Cache-Control': 'private, no-store' };
-function failure(error: unknown) {
-  if (error instanceof WidgetError)
-    return Response.json(
-      { error: error.message },
-      { status: error.status, headers },
-    );
-  const message =
-    error instanceof Error
-      ? error.message
-      : 'Homeboard could not load the board.';
-  if (/D1_ERROR|SQLITE|no such table/i.test(message)) {
-    console.error('Widget storage unavailable');
-    return Response.json(
-      {
-        error:
-          'Your board is temporarily unavailable. Please try again shortly.',
-      },
-      { status: 503, headers },
-    );
-  }
-  return Response.json({ error: message }, { status: 502, headers });
-}
+const headers = NO_STORE;
 export async function GET(request: Request) {
   try {
     return Response.json(await loadBoard(ownerFor(request), request), {

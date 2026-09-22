@@ -309,6 +309,53 @@ export function packWidgets(
   return slots;
 }
 
+export const ARTIFACT_TTL_MS = 24 * 3600e3;
+export type Artifact = {
+  id: string;
+  title: string;
+  query: string;
+  definition: Definition;
+  snapshot: Snapshot;
+  state: WidgetState;
+  promotedWidgetId: string | null;
+  createdAt: string;
+  expiresAt: string;
+};
+/** Synthetic widget so Composition/CustomWidget can render an artifact body. */
+export function artifactAsWidget(a: Artifact): Widget {
+  return {
+    id: `artifact-${a.id}`,
+    definitionId: a.id,
+    title: a.title,
+    definition: a.definition,
+    snapshot: a.snapshot,
+    state: a.state,
+    revision: 0,
+    pinned: false,
+    archived: false,
+    size: 'focus',
+    order: 0,
+    layouts: {},
+    query: a.query,
+    binding: { type: 'artifact' },
+    offlineAllowed: false,
+    updatedAt: a.createdAt,
+    previousDefinitionId: null,
+  };
+}
+export function relativeTime(iso: string, now = Date.now()): string {
+  const t = new Date(iso).getTime();
+  const diff = now - t;
+  if (!Number.isFinite(t) || diff < 45e3) return 'just now';
+  if (diff < 60 * 60e3) return `${Math.floor(diff / 60e3)} min ago`;
+  if (diff < 24 * 3600e3) return `${Math.floor(diff / 3600e3)} h ago`;
+  if (diff < 48 * 3600e3) return 'yesterday';
+  if (diff < 14 * 86400e3) return `${Math.floor(diff / 86400e3)} days ago`;
+  return new Date(t).toLocaleDateString('en-AU', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
 export function isExpired(snapshot: Snapshot, now = Date.now()) {
   return !!snapshot.expiresAt && new Date(snapshot.expiresAt).getTime() <= now;
 }

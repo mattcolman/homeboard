@@ -84,6 +84,25 @@ export const familyMembers = sqliteTable(
   (table) => [index('idx_family_members_owner').on(table.ownerId)],
 );
 
+export const artifacts = sqliteTable(
+  'artifacts',
+  {
+    id: text('id').primaryKey(),
+    ownerId: text('owner_id').notNull(),
+    title: text('title').notNull(),
+    queryText: text('query_text').notNull(),
+    definitionJson: text('definition_json').notNull(),
+    snapshotJson: text('snapshot_json').notNull(),
+    stateJson: text('state_json').notNull().default('{}'),
+    promotedWidgetId: text('promoted_widget_id'),
+    createdAt: text('created_at').notNull(),
+    expiresAt: text('expires_at').notNull(),
+  },
+  (table) => [
+    index('idx_artifacts_owner_created').on(table.ownerId, table.createdAt),
+  ],
+);
+
 export const calendarConnections = sqliteTable('calendar_connections', {
   ownerId: text('owner_id').primaryKey(),
   provider: text('provider').notNull(),

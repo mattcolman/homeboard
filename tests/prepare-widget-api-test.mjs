@@ -25,6 +25,9 @@ const files = {
   'family-palette': 'app/lib/family-palette.ts',
   family: 'app/lib/family.ts',
   route: 'app/api/widgets/route.ts',
+  api: 'app/lib/api.ts',
+  artifacts: 'app/lib/artifacts.ts',
+  artifactsroute: 'app/api/artifacts/route.ts',
   ingest: 'app/api/ingest/route.ts',
   familyroute: 'app/api/family/route.ts',
 };
@@ -46,6 +49,7 @@ for (const [name, file] of Object.entries(files)) {
     '../recipes': './recipes.mjs',
     './recipes': './recipes.mjs',
     './generation': './generation.mjs',
+    './widgets/generation': './generation.mjs',
     './curate-shopping': './curate-shopping.mjs',
     './family-palette': './family-palette.mjs',
     './widgets/store': './store.mjs',
@@ -54,6 +58,8 @@ for (const [name, file] of Object.entries(files)) {
     '@/app/lib/widgets/store': './store.mjs',
     '@/app/lib/recipes': './recipes.mjs',
     '@/app/lib/family': './family.mjs',
+    '@/app/lib/artifacts': './artifacts.mjs',
+    '@/app/lib/api': './api.mjs',
   }))
     source = source.replaceAll(`'${from}'`, `'${to}'`);
   await emit(`${name}.mjs`, source);
