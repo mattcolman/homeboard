@@ -8,6 +8,7 @@ import {
 } from '../calendar/icloud';
 import { generateWidget } from './generation';
 import { curateForShopping, type CuratedItem } from './curate-shopping';
+import { listMembers } from '../family';
 import { weatherPlace, weatherSnapshot } from '../weather';
 import {
   isExpired,
@@ -431,7 +432,13 @@ export async function loadBoard(
       }
     }
   }
-  return { widgets, cacheScope: scope, serverTime: new Date().toISOString() };
+  const members = await listMembers(owner);
+  return {
+    widgets,
+    members,
+    cacheScope: scope,
+    serverTime: new Date().toISOString(),
+  };
 }
 
 type Changes = Partial<

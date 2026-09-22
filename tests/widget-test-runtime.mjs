@@ -1,14 +1,10 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 const sqlite = new DatabaseSync(':memory:');
-for (const file of [
-  'drizzle/0000_curved_mauler.sql',
-  'drizzle/0001_nasty_mystique.sql',
-  'drizzle/0002_volatile_demogoblin.sql',
-  'drizzle/0003_happy_thunderbolts.sql',
-  'drizzle/0004_majestic_ted_forrester.sql',
-])
-  sqlite.exec(readFileSync(file, 'utf8'));
+for (const file of readdirSync('drizzle')
+  .filter((name) => name.endsWith('.sql'))
+  .sort())
+  sqlite.exec(readFileSync(`drizzle/${file}`, 'utf8'));
 class Prepared {
   constructor(sql, args = []) {
     this.sql = sql;

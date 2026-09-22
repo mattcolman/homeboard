@@ -1,9 +1,16 @@
-import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
+import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import ts from 'typescript';
 await mkdir('.wrangler/widget-api-tests', { recursive: true });
-await copyFile(
-  'tests/widget-test-runtime.mjs',
-  '.wrangler/widget-api-tests/runtime.mjs',
+// Parallel test files all run this prepare; write atomically so a reader
+// never catches a half-written module.
+const emit = async (name, source) => {
+  const tmp = `.wrangler/widget-api-tests/${name}.${process.pid}.tmp`;
+  await writeFile(tmp, source);
+  await rename(tmp, `.wrangler/widget-api-tests/${name}`);
+};
+await emit(
+  'runtime.mjs',
+  await readFile('tests/widget-test-runtime.mjs', 'utf8'),
 );
 const files = {
   model: 'app/lib/widgets/model.ts',
@@ -15,8 +22,11 @@ const files = {
   weather: 'app/lib/weather.ts',
   recipes: 'app/lib/recipes.ts',
   db: 'app/lib/db.ts',
+  'family-palette': 'app/lib/family-palette.ts',
+  family: 'app/lib/family.ts',
   route: 'app/api/widgets/route.ts',
   ingest: 'app/api/ingest/route.ts',
+  familyroute: 'app/api/family/route.ts',
 };
 for (const [name, file] of Object.entries(files)) {
   let source = ts.transpileModule(await readFile(file, 'utf8'), {
@@ -37,10 +47,14 @@ for (const [name, file] of Object.entries(files)) {
     './recipes': './recipes.mjs',
     './generation': './generation.mjs',
     './curate-shopping': './curate-shopping.mjs',
+    './family-palette': './family-palette.mjs',
+    './widgets/store': './store.mjs',
+    '../family': './family.mjs',
     './model': './model.mjs',
     '@/app/lib/widgets/store': './store.mjs',
     '@/app/lib/recipes': './recipes.mjs',
+    '@/app/lib/family': './family.mjs',
   }))
     source = source.replaceAll(`'${from}'`, `'${to}'`);
-  await writeFile(`.wrangler/widget-api-tests/${name}.mjs`, source);
+  await emit(`${name}.mjs`, source);
 }

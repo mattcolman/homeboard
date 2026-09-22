@@ -17,6 +17,7 @@ import {
   Settings,
   Sparkles,
   Undo2,
+  Users,
   WifiOff,
   X,
 } from 'lucide-react';
@@ -293,6 +294,7 @@ export default function Homeboard() {
         await clearOffline();
         commitBoard({
           widgets: [],
+          members: [],
           cacheScope: '',
           serverTime: new Date().toISOString(),
         });
@@ -787,7 +789,11 @@ export default function Homeboard() {
                         })),
                     ) +
                     '; focused widget: ' +
-                    focusRef.current,
+                    focusRef.current +
+                    '; household members: ' +
+                    JSON.stringify(
+                      (boardRef.current?.members ?? []).map((m) => m.name),
+                    ),
                 },
               ],
             },
@@ -890,6 +896,14 @@ export default function Homeboard() {
           </button>
           <Link
             className="connections-link"
+            href="/family"
+            aria-label="Family members"
+          >
+            <Users />
+            <span>Family</span>
+          </Link>
+          <Link
+            className="connections-link"
             href="/connections"
             aria-label="Household connections"
           >
@@ -949,6 +963,7 @@ export default function Homeboard() {
       ) : board ? (
         <WidgetBoard
           widgets={board.widgets}
+          members={board.members ?? []}
           focusId={focusId}
           onFocus={showFocus}
           action={action}

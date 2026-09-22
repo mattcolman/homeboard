@@ -1,0 +1,133 @@
+.family-field {
+  display: block;
+  margin: 15px 0;
+  border: 0;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.family-field legend,
+.family-field > span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #5d6b7a;
+}
+.family-field input[type='text'],
+.family-field input:not([type]) {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font: inherit;
+  background: #fff;
+  color: var(--foreground);
+}
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.emoji-grid button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.emoji-grid button.selected {
+  border-color: var(--accent);
+  outline: 2px solid rgba(4, 48, 235, 0.25);
+}
+.color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.color-grid button {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.color-grid button svg {
+  width: 18px;
+  height: 18px;
+}
+.color-grid button.selected {
+  outline: 3px solid rgba(14, 21, 38, 0.35);
+  outline-offset: 2px;
+}
+.member-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #0e152618;
+}
+.member-row:last-child {
+  border-bottom: 0;
+}
+.member-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  flex: none;
+}
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+.member-info strong {
+  display: block;
+  font-size: 1.05rem;
+}
+.member-info small {
+  color: #5d6b7a;
+  font-size: 0.8125rem;
+}
+.member-edit {
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.member-remove {
+  min-width: 40px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #b03828;
+  cursor: pointer;
+}
+.member-remove svg {
+  width: 18px;
+  height: 18px;
+}

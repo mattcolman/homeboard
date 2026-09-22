@@ -147,8 +147,16 @@ export function weatherCondition(code: number) {
   if (code === 96 || code === 99) return 'Thunderstorm with hail';
   return 'Unknown';
 }
+export type FamilyMember = {
+  id: string;
+  name: string;
+  color: string;
+  emoji: string;
+  calendarIds: string[];
+};
 export type Board = {
   widgets: Widget[];
+  members: FamilyMember[];
   cacheScope: string;
   serverTime: string;
 };

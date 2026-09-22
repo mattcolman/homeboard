@@ -44,6 +44,7 @@ import {
   stepId,
   supportsSmall,
   type Columns,
+  type FamilyMember,
   type LayoutNode,
   type Widget,
   type WidgetSize,
@@ -428,7 +429,15 @@ function LibraryBody({
   );
 }
 
-function CalendarBody({ widget, focus }: { widget: Widget; focus: boolean }) {
+function CalendarBody({
+  widget,
+  focus,
+  members,
+}: {
+  widget: Widget;
+  focus: boolean;
+  members: FamilyMember[];
+}) {
   if (!widget.snapshot.data.calendarConnected)
     return (
       <div className="calendar-empty">
@@ -450,6 +459,9 @@ function CalendarBody({ widget, focus }: { widget: Widget; focus: boolean }) {
   const referenceTime = Date.parse(widget.snapshot.fetchedAt),
     today = dayKey(new Date(referenceTime).toISOString()),
     tomorrow = dayKey(new Date(referenceTime + 86_400_000).toISOString());
+  const byCalendar = new Map<string, FamilyMember>();
+  for (const member of members)
+    for (const calendarId of member.calendarIds) byCalendar.set(calendarId, member);
   let previousDay = '';
   return (
     <div className="calendar-widget">
@@ -486,6 +498,7 @@ function CalendarBody({ widget, focus }: { widget: Widget; focus: boolean }) {
                   hour: 'numeric',
                   minute: '2-digit',
                 }).format(date);
+          const member = byCalendar.get(event.calendarId);
           return (
             <div key={event.id}>
               {showDay && <h3 className="calendar-day">{day}</h3>}
@@ -495,7 +508,17 @@ function CalendarBody({ widget, focus }: { widget: Widget; focus: boolean }) {
                 <div>
                   <strong>{event.title}</strong>
                   <small>
-                    {event.calendarName}
+                    {member ? (
+                      <span
+                        className="calendar-member"
+                        style={{ color: member.color }}
+                      >
+                        {member.emoji ? `${member.emoji} ` : ''}
+                        {member.name}
+                      </span>
+                    ) : (
+                      event.calendarName
+                    )}
                     {focus && event.location ? ` · ${event.location}` : ''}
                   </small>
                 </div>
@@ -596,6 +619,7 @@ function WidgetContent({
   onShopping,
   activeCustom,
   offline,
+  members,
 }: {
   widget: Widget;
   focus: boolean;
@@ -604,6 +628,7 @@ function WidgetContent({
   onShopping: (widget: Widget) => void;
   activeCustom: boolean;
   offline: boolean;
+  members: FamilyMember[];
 }) {
   const onState = (state: WidgetState) => {
     if (!offline) void action(widget, 'state', { state });
@@ -624,7 +649,7 @@ function WidgetContent({
   if (widget.definition.kind === 'recipe')
     return <RecipeBody {...{ widget, focus, action, onShopping, offline }} />;
   if (widget.definition.kind === 'calendar')
-    return <CalendarBody widget={widget} focus={focus} />;
+    return <CalendarBody widget={widget} focus={focus} members={members} />;
   if (widget.definition.kind === 'weather')
     return <WeatherBody widget={widget} focus={focus} />;
   if (widget.definition.kind === 'library')
@@ -954,6 +979,7 @@ export function WidgetBoard({
   onShopping,
   offline,
   busy,
+  members,
 }: {
   widgets: Widget[];
   focusId: string | null;
@@ -963,6 +989,7 @@ export function WidgetBoard({
   onShopping: (widget: Widget) => void;
   offline: boolean;
   busy: Set<string>;
+  members: FamilyMember[];
 }) {
   const container = useRef<HTMLDivElement>(null),
     [columns, setColumns] = useState<Columns>(12);
@@ -995,6 +1022,7 @@ export function WidgetBoard({
           onShopping,
           offline,
           activeCustom,
+          members,
         }}
       />
     </WidgetShell>

@@ -69,6 +69,21 @@ export const widgetMutations = sqliteTable('widget_mutations', {
   createdAt: text('created_at').notNull(),
 });
 
+export const familyMembers = sqliteTable(
+  'family_members',
+  {
+    id: text('id').primaryKey(),
+    ownerId: text('owner_id').notNull(),
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    emoji: text('emoji').notNull().default(''),
+    calendarIdsJson: text('calendar_ids_json').notNull().default('[]'),
+    ordinal: integer('ordinal').notNull().default(0),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [index('idx_family_members_owner').on(table.ownerId)],
+);
+
 export const calendarConnections = sqliteTable('calendar_connections', {
   ownerId: text('owner_id').primaryKey(),
   provider: text('provider').notNull(),
