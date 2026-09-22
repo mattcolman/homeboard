@@ -29,6 +29,7 @@ function assertionName(assertion, index) {
   if (assertion.name) return assertion.name;
   if (assertion.judge) return `judge#${index + 1}`;
   if (assertion.tool_called) return 'tool_called';
+  if (assertion.tool_not_called) return 'tool_not_called';
   if (assertion.no_tool_call) return 'no_tool_call';
   for (const key of Object.keys(assertion))
     if (key.startsWith('reply_')) return key;
@@ -170,6 +171,16 @@ export async function runScenario(scenario, options = {}) {
         `${name} — expected tool ${wanted.name}; calls were [${calls
           .map((c) => c.name)
           .join(', ')}]`,
+      );
+    }
+
+    if (assertion.tool_not_called) {
+      const wanted = assertion.tool_not_called;
+      const found = calls.some((c) => c.name === wanted);
+      return record(
+        index,
+        found ? 'fail' : 'pass',
+        `${name} — calls were [${calls.map((c) => c.name).join(', ')}]`,
       );
     }
 

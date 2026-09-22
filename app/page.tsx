@@ -32,7 +32,15 @@ import {
   saveOffline,
   saveOfflineStep,
 } from './lib/widgets/offline';
-import { stepId, type Board, type Widget } from './lib/widgets/model';
+import {
+  relativeTime,
+  stepId,
+  type Artifact,
+  type Board,
+  type Widget,
+  type WidgetState,
+} from './lib/widgets/model';
+import { ArtifactView } from './components/widgets/ArtifactView';
 import type { Recipe } from './lib/recipes';
 import {
   calendarEventsForRange,
@@ -69,7 +77,9 @@ export default function Homeboard() {
     [typed, setTyped] = useState(false),
     [query, setQuery] = useState(''),
     [choices, setChoices] = useState<Recipe[] | null>(null),
-    [lastRemoved, setLastRemoved] = useState<Widget | null>(null);
+    [lastRemoved, setLastRemoved] = useState<Widget | null>(null),
+    [artifact, setArtifact] = useState<Artifact | null>(null),
+    [recent, setRecent] = useState<Artifact[]>([]);
   const legacy = useSyncExternalStore(
     () => () => {},
     () => new URLSearchParams(location.search).get('legacy') === '1',
@@ -79,6 +89,7 @@ export default function Homeboard() {
     focusRef = useRef<string | null>(null),
     offlineRef = useRef(false),
     choicesRef = useRef<Recipe[]>([]),
+    artifactRef = useRef<Artifact | null>(null),
     peer = useRef<RTCPeerConnection | null>(null),
     channel = useRef<RTCDataChannel | null>(null),
     stream = useRef<MediaStream | null>(null),
@@ -100,6 +111,24 @@ export default function Homeboard() {
     setFocusId(id);
     setChoices(null);
   };
+  const showArtifact = (a: Artifact | null) => {
+    artifactRef.current = a;
+    setArtifact(a);
+    if (a) {
+      showFocus(null);
+      setChoices(null);
+    }
+  };
+  const loadRecent = useCallback(async () => {
+    try {
+      const response = await fetch('/api/artifacts', { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = (await response.json()) as { artifacts?: Artifact[] };
+      setRecent(data.artifacts ?? []);
+    } catch {
+      // Recent answers are optional; keep what we have.
+    }
+  }, []);
   const signedOut = useRef(false),
     requestDialog = useRef<HTMLDialogElement>(null);
   const commitBoard = useCallback((next: Board) => {
@@ -237,6 +266,7 @@ export default function Homeboard() {
     void Promise.resolve()
       .then(loadBoard)
       .finally(() => setLoading(false));
+    void Promise.resolve().then(loadRecent);
     const wake = () => {
       if (document.visibilityState === 'visible') void loadBoard();
     };
@@ -275,7 +305,7 @@ export default function Homeboard() {
       window.removeEventListener('online', online);
       window.removeEventListener('offline', lost);
     };
-  }, [loadBoard]);
+  }, [loadBoard, loadRecent]);
   async function api(
     input: Record<string, unknown>,
   ): Promise<{ widget: Widget; reused?: boolean }> {
@@ -303,6 +333,74 @@ export default function Homeboard() {
       throw Error(data.error || 'That change could not be saved.');
     }
     return data;
+  }
+  async function artifactApi(input: Record<string, unknown>) {
+    const response = await fetch('/api/artifacts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const data = (await response.json()) as {
+      artifact?: Artifact;
+      widget?: Widget;
+      error?: string;
+    };
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        await clearOffline();
+        commitBoard({
+          widgets: [],
+          members: [],
+          cacheScope: '',
+          serverTime: new Date().toISOString(),
+        });
+      }
+      throw Error(data.error || 'That visual could not be saved.');
+    }
+    return data;
+  }
+  async function showVisual(query: string) {
+    if (offlineRef.current) throw Error('Reconnect to ask for a visual.');
+    setGenerating(true);
+    setMessage('Putting together a visual…');
+    try {
+      const result = await artifactApi({ action: 'create', query });
+      showArtifact(result.artifact!);
+      setMessage('Here’s your visual. Say “keep this” to add it to the board.');
+      return result.artifact!;
+    } finally {
+      setGenerating(false);
+    }
+  }
+  async function keepArtifact(a: Artifact) {
+    const result = await artifactApi({ action: 'keep', id: a.id });
+    ++mutationSeq.current;
+    replaceWidget(result.widget!);
+    showArtifact(null);
+    showFocus(result.widget!.id);
+    void loadRecent();
+    setMessage('Kept on your board.');
+    return result.widget!;
+  }
+  async function refineArtifactView(a: Artifact, instruction: string) {
+    setGenerating(true);
+    try {
+      const result = await artifactApi({
+        action: 'refine',
+        id: a.id,
+        instruction,
+      });
+      showArtifact(result.artifact!);
+      setMessage('Visual updated.');
+      return result.artifact!;
+    } finally {
+      setGenerating(false);
+    }
+  }
+  async function dismissArtifactView(a: Artifact) {
+    await artifactApi({ action: 'dismiss', id: a.id });
+    showArtifact(null);
+    void loadRecent();
   }
   const action: WidgetAction = (widget, kind, args = {}) => {
     const execute = async () => {
@@ -538,6 +636,9 @@ export default function Homeboard() {
               pinned: w.pinned,
             })),
           focused: focusRef.current,
+          visual: artifactRef.current
+            ? { id: artifactRef.current.id, title: artifactRef.current.title }
+            : null,
         };
       } else if (item.name === 'create_widget') {
         const result = await create(
@@ -548,10 +649,68 @@ export default function Homeboard() {
           title: result.widget.title,
           id: result.widget.id,
         };
+      } else if (item.name === 'show_visual') {
+        try {
+          const shown = await showVisual(
+            typeof args.query === 'string' ? args.query : '',
+          );
+          output = {
+            shown: true,
+            title: shown.title,
+            id: shown.id,
+            summary: shown.definition.summary.slice(0, 300),
+          };
+        } catch (error) {
+          const reason =
+            error instanceof Error
+              ? error.message
+              : 'The visual could not be made.';
+          setMessage(reason);
+          output = { shown: false, fallback: true, reason };
+        }
+      } else if (item.name === 'control_visual') {
+        const current = artifactRef.current;
+        if (!current) throw Error('No visual is open. Ask what to show.');
+        if (args.action === 'keep') {
+          const kept = await keepArtifact(current);
+          output = { kept: true, title: kept.title };
+        } else if (args.action === 'refine') {
+          const updated = await refineArtifactView(
+            current,
+            typeof args.instruction === 'string' ? args.instruction : '',
+          );
+          output = { updated: updated.title };
+        } else if (args.action === 'close') {
+          showArtifact(null);
+          output = { closed: true };
+        } else throw Error('That action is not supported.');
       } else if (item.name === 'control_widget') {
         if (args.action === 'board') {
           showFocus(null);
           output = { displayed: 'board' };
+        } else if (!args.widget && artifactRef.current) {
+          const current = artifactRef.current;
+          if (args.action === 'keep') {
+            const kept = await keepArtifact(current);
+            output = { updated: kept.title };
+          } else if (args.action === 'refine') {
+            const updated = await refineArtifactView(
+              current,
+              typeof args.instruction === 'string' ? args.instruction : '',
+            );
+            output = { updated: updated.title };
+          } else if (args.action === 'remove') {
+            await dismissArtifactView(current);
+            output = { updated: current.title };
+          } else {
+            const widget = selected(args.widget);
+            const result = await action(widget, String(args.action), {
+              size: args.size,
+              instruction: args.instruction,
+            });
+            if (!result) throw Error('The widget could not be updated.');
+            output = { updated: result.title };
+          }
         } else {
           const widget = selected(args.widget);
           if (args.action === 'focus') {
@@ -944,7 +1103,54 @@ export default function Homeboard() {
           </button>
         </div>
       </header>
-      {choices ? (
+      {artifact ? (
+        <ArtifactView
+          artifact={artifact}
+          offline={offline}
+          busy={generating}
+          onBack={() => showArtifact(null)}
+          onKeep={() =>
+            void keepArtifact(artifact).catch((error) =>
+              setMessage(
+                error instanceof Error
+                  ? error.message
+                  : 'The visual could not be kept.',
+              ),
+            )
+          }
+          onRefine={(instruction) =>
+            void refineArtifactView(artifact, instruction).catch((error) =>
+              setMessage(
+                error instanceof Error
+                  ? error.message
+                  : 'The visual could not be updated.',
+              ),
+            )
+          }
+          onDismiss={() =>
+            void dismissArtifactView(artifact).catch((error) =>
+              setMessage(
+                error instanceof Error
+                  ? error.message
+                  : 'The visual could not be discarded.',
+              ),
+            )
+          }
+          onState={(state: WidgetState) => {
+            void artifactApi({ action: 'state', id: artifact.id, state })
+              .then((result) => {
+                if (result.artifact) showArtifact(result.artifact);
+              })
+              .catch((error) =>
+                setMessage(
+                  error instanceof Error
+                    ? error.message
+                    : 'That change could not be saved.',
+                ),
+              );
+          }}
+        />
+      ) : choices ? (
         <section className="recipe-results">
           <button className="board-back" onClick={() => setChoices(null)}>
             <ArrowLeft />
@@ -1002,6 +1208,19 @@ export default function Homeboard() {
           )}
         </section>
       )}
+      {!focusId && !artifact && !choices && !!recent.length && (
+        <section className="recent-artifacts" aria-label="Recent answers">
+          <h3>Recent answers</h3>
+          <div>
+            {recent.map((a) => (
+              <button key={a.id} onClick={() => showArtifact(a)}>
+                <span>{a.title}</span>
+                <small>{relativeTime(a.createdAt)}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {!!board && !board.widgets.some((w) => !w.archived) && (
         <section className="empty-board">
           <h1>A little room for something useful.</h1>
@@ -1038,7 +1257,7 @@ export default function Homeboard() {
           >
             {voice === 'idle' || voice === 'error' ? <Mic /> : <MicOff />}
           </button>
-          <span>{generating ? 'Making your widget…' : voiceCopy[voice]}</span>
+          <span>{generating ? 'Working on it…' : voiceCopy[voice]}</span>
           <button
             className="homeboard-type"
             onClick={() => setTyped(!typed)}
@@ -1060,10 +1279,16 @@ export default function Homeboard() {
           onSubmit={(e) => {
             e.preventDefault();
             if (!query.trim()) return;
-            const request = query;
+            const request = query,
+              submitter = (e.nativeEvent as SubmitEvent)
+                .submitter as HTMLElement | null;
             setTyped(false);
             setQuery('');
-            void create(request).catch((error) => setMessage(error.message));
+            const pending =
+              submitter?.dataset.mode === 'board'
+                ? create(request)
+                : showVisual(request).then(() => undefined);
+            void pending.catch((error) => setMessage(error.message));
           }}
         >
           <div>
@@ -1077,7 +1302,7 @@ export default function Homeboard() {
             </button>
           </div>
           <label htmlFor="widget-request">
-            Ask for a comparison, explanation, checklist or interactive visual.
+            Ask a question, or make a widget for your board.
           </label>
           <textarea
             id="widget-request"
@@ -1087,13 +1312,23 @@ export default function Homeboard() {
             maxLength={1200}
             placeholder="Compare three trees for a small backyard…"
           />
-          <button
-            className="primary-button"
-            disabled={offline || generating || !query.trim()}
-          >
-            Make a widget
-            <Sparkles />
-          </button>
+          <div className="request-actions">
+            <button
+              className="primary-button"
+              data-mode="visual"
+              disabled={offline || generating || !query.trim()}
+            >
+              Show me
+              <Sparkles />
+            </button>
+            <button
+              className="quiet-button"
+              data-mode="board"
+              disabled={offline || generating || !query.trim()}
+            >
+              Add to board
+            </button>
+          </div>
         </form>
       </dialog>
     </main>
