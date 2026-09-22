@@ -1415,3 +1415,113 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Artifact view — a generated visual answer filling the screen like a
+   focused widget, with its actions below rather than in a board menu. */
+.artifact-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  min-height: 100%;
+  flex: 1;
+}
+.artifact-view > .hb-widget {
+  min-height: 0;
+  min-width: 0;
+}
+.artifact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.artifact-actions > * {
+  min-height: 48px;
+}
+.artifact-actions .primary-button {
+  width: auto;
+  margin-top: 0;
+  padding: 10px 20px;
+}
+.artifact-actions form {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: min(280px, 100%);
+}
+.artifact-actions form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+}
+.artifact-actions form button {
+  min-height: 48px;
+}
+/* Freshness affordance inside the widget footer. */
+.freshness-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  min-height: 32px;
+  font-size: 0.75rem;
+  color: inherit;
+  opacity: 0.9;
+}
+.freshness-refresh svg {
+  width: 14px;
+  height: 14px;
+}
+.is-colored .freshness-refresh {
+  color: #ffffff;
+}
+/* Recent answers strip below the board. */
+.recent-artifacts {
+  padding: 8px 4px 0;
+}
+.recent-artifacts h3 {
+  font:
+    700 0.9rem/1.4 var(--font-display-local);
+  opacity: 0.75;
+  margin: 0 0 8px;
+}
+.recent-artifacts > div {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.recent-artifacts button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  flex: none;
+}
+.recent-artifacts button span {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.recent-artifacts button small {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+.request-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 18px;
+}
+.request-actions .primary-button {
+  margin-top: 0;
+}
+.request-actions .quiet-button {
+  min-height: 48px;
+  flex: none;
+}

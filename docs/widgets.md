@@ -26,6 +26,12 @@ The iCloud app-specific password is encrypted with AES-GCM before storage and is
 
 Shopping sync keeps the widget's snapshot items as the local store, each carrying its CalDAV `uid`, `href`, `etag` and last-seen remote state. Sync pushes new items as VTODOs (`PUT`, `If-None-Match: *`), updates checks by editing the fetched resource (`GET`, `PUT` with `If-Match`), and deletes cleared items (`DELETE`). Remote additions, completions and deletions reconcile down; when both sides changed an item, iCloud wins. Per-item push failures stay unsynced and retry on the next sync; a failed remote delete keeps the item checked for retry.
 
+## Artifacts and freshness
+
+Artifacts are ephemeral visual answers, stored in the `artifacts` table (definition, snapshot, state and the originating request) and rendered full-screen through the same composition/module path as widgets. They expire 24 hours after creation (`ARTIFACT_TTL_MS`); expired rows are purged on read. "Keep this" promotes an artifact into a pinned board widget via `promoteArtifact`, which is idempotent. `GET`/`POST /api/artifacts` covers list, create, refine, state, keep and dismiss.
+
+The `Freshness` component renders each card's source time as a relative label (`Updated 5 min ago`, `Saved …` when offline), and becomes a tap-to-refresh button once the snapshot's `staleAt` has passed. `relativeTime` in the model produces the shared wording. Example and Homeboard sources show no timestamp.
+
 ## Rendering and generation
 
 Trusted React blocks cover text, metrics, charts, lists, steps, comparisons, checklists and columns. Generation uses a strict JSON schema, validates bounds, and separates data values from presentation. A refresh preserves the existing renderer and hierarchy; explicit refinement creates a new definition. Public web sources are recorded when used. Provider failures leave the saved widget intact.
