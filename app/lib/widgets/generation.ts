@@ -1,6 +1,7 @@
 import {
   normaliseQuery,
   safeUrl,
+  TONES,
   type ContentValue,
   type Definition,
   type LayoutNode,
@@ -22,7 +23,7 @@ export const GENERATION_SCHEMA = {
     title: string,
     summary: string,
     kind: { type: 'string', enum: ['composition', 'module'] },
-    tone: { type: 'string', enum: ['cream', 'forest', 'terracotta'] },
+    tone: { type: 'string', enum: [...TONES] },
     timeSensitive: { type: 'boolean' },
     blocks: { type: 'array', items: { $ref: '#/$defs/block' } },
     module: {
@@ -99,7 +100,7 @@ export function validateGenerated(input: unknown) {
     throw Error('The widget needs a short title and summary.');
   if (
     !['composition', 'module'].includes(data.kind) ||
-    !['cream', 'forest', 'terracotta'].includes(data.tone) ||
+    !(TONES as readonly string[]).includes(data.tone) ||
     typeof data.timeSensitive !== 'boolean'
   )
     throw Error('Unknown widget format.');

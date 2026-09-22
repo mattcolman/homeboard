@@ -156,23 +156,124 @@
   padding: 20px;
   box-shadow: 0 8px 30px #0f17280d;
 }
+/* Fixed widget palette — Apple-style saturated gradients with white text.
+   .tone-cream stays the light option; every other tone is coloured. */
+.hb-widget.tone-indigo {
+  border: 0;
+  background: linear-gradient(155deg, #4f6df5 0%, #2b3a9e 100%);
+}
+.hb-widget.tone-sky {
+  border: 0;
+  background: linear-gradient(155deg, #38a4f8 0%, #0369c9 100%);
+}
+.hb-widget.tone-green {
+  border: 0;
+  background: linear-gradient(155deg, #34b172 0%, #0d7a45 100%);
+}
 .hb-widget.tone-terracotta {
-  border: 2px solid #0430eb;
-  background: #ffffff;
-  color: #0e1526;
+  border: 0;
+  background: linear-gradient(155deg, #f08a4b 0%, #c24e17 100%);
 }
+.hb-widget.tone-emerald,
 .hb-widget.tone-forest {
-  border: 2px solid #0f1a2b;
+  border: 0;
+  background: linear-gradient(155deg, #2fae7d 0%, #0b5f43 100%);
+}
+.hb-widget.tone-violet {
+  border: 0;
+  background: linear-gradient(155deg, #9d86f2 0%, #5b3df0 100%);
+}
+.hb-widget.tone-amber {
+  border: 0;
+  background: linear-gradient(155deg, #f2b04a 0%, #b96f12 100%);
+}
+.hb-widget.is-colored {
+  color: #ffffff;
+}
+.is-colored .widget-label {
+  color: rgba(255, 255, 255, 0.78);
+  opacity: 1;
+}
+.is-colored .widget-menu > summary:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+.is-colored .widget-footer {
+  border-top-color: rgba(255, 255, 255, 0.28);
+}
+.is-colored .calendar-event,
+.is-colored .recipe-library button,
+.is-colored .widget-comparison > div,
+.is-colored .widget-ingredients {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.is-colored .widget-checklist input {
+  accent-color: #0e1526;
+}
+.is-colored .shopping-group h5 {
+  color: rgba(255, 255, 255, 0.72);
+}
+.is-colored .weather-now > svg {
+  color: #ffffff;
+}
+.is-colored .weather-day {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+.is-colored .weather-day .weather-rain {
+  color: #ffffff;
+}
+.is-colored .widget-callout {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+.is-colored .widget-bar {
+  background: rgba(255, 255, 255, 0.3);
+}
+.is-colored .widget-bar > i {
   background: #ffffff;
+}
+.is-colored .widget-recipe-meta span {
+  background: rgba(255, 255, 255, 0.18);
+}
+.is-colored .recipe-step-controls button,
+.is-colored .widget-ingredients button,
+.is-colored .recipe-add > div button,
+.is-colored .quiet-button {
+  border: 0;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+.is-colored .chore-remove {
+  color: rgba(255, 255, 255, 0.75);
+}
+.is-colored .chore-add {
+  border-top-color: rgba(255, 255, 255, 0.28);
+}
+.is-colored .chore-add button {
+  background: rgba(255, 255, 255, 0.92);
   color: #0e1526;
 }
-.tone-terracotta .widget-label {
-  color: #0430eb;
-  opacity: 1;
+.is-colored blockquote {
+  border-left-color: rgba(255, 255, 255, 0.5);
 }
-.tone-forest .widget-label {
-  color: #0f1a2b;
-  opacity: 1;
+/* Circular icon badge overlapping the card's top-right corner. */
+.widget-icon-badge {
+  position: absolute;
+  top: -13px;
+  right: -13px;
+  z-index: 4;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  place-items: center;
+  background: #ffffff;
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.22),
+    inset 0 0 0 1px rgba(14, 21, 38, 0.06);
+}
+.widget-icon-badge svg {
+  width: 27px;
+  height: 27px;
 }
 .widget-header {
   display: flex;
@@ -214,7 +315,8 @@
   cursor: pointer;
   border-radius: 12px;
   list-style: none;
-  margin: -10px -10px 0 0;
+  /* Clear of the icon badge that straddles the top-right corner. */
+  margin: -10px 42px 0 0;
 }
 .widget-menu > summary::-webkit-details-marker {
   display: none;
@@ -528,6 +630,8 @@
   padding: 0 12px;
   border: 1px solid #d8dee8;
   border-radius: 10px;
+  background: #fff;
+  color: #0e1526;
   font-size: 0.9375rem;
 }
 .chores-widget .chore-add select {
@@ -537,6 +641,7 @@
   border: 1px solid #d8dee8;
   border-radius: 10px;
   background: #fff;
+  color: #0e1526;
   font-size: 0.9375rem;
 }
 .chores-widget .chore-add button {
@@ -795,7 +900,7 @@
   border: 1px solid #dfe5ec;
   border-radius: 10px;
   background: white;
-  color: inherit;
+  color: #0e1526;
   padding: 8px 12px;
   font: inherit;
 }

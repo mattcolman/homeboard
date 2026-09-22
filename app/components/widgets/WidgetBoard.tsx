@@ -24,16 +24,23 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
+  CookingPot,
   Expand,
+  Flag,
+  LibraryBig,
+  ListTodo,
   Moon,
   MoreHorizontal,
   Pin,
   Plus,
+  Puzzle,
   RefreshCw,
   ShoppingBasket,
+  Sparkles,
   Sun,
   Undo2,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   columnsForWidth,
@@ -531,6 +538,27 @@ function CalendarBody({
   );
 }
 
+// Colourful badge per widget kind — a white circle straddling the card's
+// top-right corner, glyph in the kind's palette colour.
+const KIND_BADGE: Record<
+  Widget['definition']['kind'],
+  { icon: LucideIcon; color: string }
+> = {
+  calendar: { icon: CalendarDays, color: '#3b55d9' },
+  weather: { icon: CloudSun, color: '#0284d8' },
+  shopping: { icon: ShoppingBasket, color: '#0e8a4e' },
+  recipe: { icon: CookingPot, color: '#d95f22' },
+  library: { icon: LibraryBig, color: '#d95f22' },
+  chores: { icon: ListTodo, color: '#b07417' },
+  composition: { icon: Sparkles, color: '#6d4be0' },
+  module: { icon: Puzzle, color: '#6d4be0' },
+};
+function badgeFor(widget: Widget) {
+  if (widget.binding.source === 'golf')
+    return { icon: Flag, color: '#0f7a50' };
+  return KIND_BADGE[widget.definition.kind] ?? KIND_BADGE.composition;
+}
+
 function weatherIcon(code: number, isDay = true) {
   const Icon =
     code <= 1
@@ -922,10 +950,20 @@ function WidgetShell({
   const position = widget.layouts[columns];
   return (
     <article
-      className={`hb-widget tone-${widget.definition.tone} ${focus ? 'is-focused' : widget.size === 'small' ? 'is-small' : ''} ${busy ? 'is-saving' : ''}`}
+      className={`hb-widget tone-${widget.definition.tone} ${widget.definition.tone !== 'cream' ? 'is-colored' : ''} ${focus ? 'is-focused' : widget.size === 'small' ? 'is-small' : ''} ${busy ? 'is-saving' : ''}`}
       aria-label={widget.title}
       aria-busy={busy}
     >
+      <span
+        className="widget-icon-badge"
+        style={{ color: badgeFor(widget).color }}
+        aria-hidden
+      >
+        {(() => {
+          const BadgeIcon = badgeFor(widget).icon;
+          return <BadgeIcon />;
+        })()}
+      </span>
       <header className="widget-header">
         <div>
           <span className="widget-label">

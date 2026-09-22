@@ -24,12 +24,24 @@ import {
   type Definition,
   type LayoutNode,
   type Snapshot,
+  type Tone,
   type Widget,
   type WidgetSize,
   type WidgetState,
 } from './model';
 
 const db = () => (env as unknown as { DB: D1Database }).DB;
+// Bound widgets wear their kind's palette tone; ingest widgets colour by
+// source (golf → emerald) and other pushed cards default to violet.
+const BOUND_TONES: Record<string, Tone> = {
+  calendar: 'indigo',
+  weather: 'sky',
+  shopping: 'green',
+  chores: 'amber',
+  library: 'terracotta',
+  example: 'violet',
+};
+const INGEST_TONES: Record<string, Tone> = { golf: 'emerald' };
 export class WidgetError extends Error {
   status: number;
   constructor(message: string, status = 400) {
@@ -259,7 +271,7 @@ export async function loadBoard(
     await make(
       'agenda',
       'Everyone’s day',
-      baseDefinition('calendar'),
+      baseDefinition('calendar', 'indigo'),
       await calendarSnapshot(owner),
       'tall',
       { type: 'calendar' },
@@ -267,7 +279,7 @@ export async function loadBoard(
     await make(
       'weather',
       'Weather',
-      baseDefinition('weather'),
+      baseDefinition('weather', 'sky'),
       await weatherSnapshot(weatherPlace(request)),
       'standard',
       { type: 'weather' },
@@ -284,7 +296,7 @@ export async function loadBoard(
       'spending',
       'Monthly spending',
       {
-        ...baseDefinition('composition'),
+        ...baseDefinition('composition', 'violet'),
         nodes: [{ id: 'spending', type: 'chart', children: [] }],
         summary: 'Example spending, not connected to an account.',
       },
@@ -307,7 +319,7 @@ export async function loadBoard(
     await make(
       'shopping',
       'Shopping',
-      baseDefinition('shopping'),
+      baseDefinition('shopping', 'green'),
       emptySnapshot('Your shopping list', { items: [] }),
       'standard',
       { type: 'shopping' },
@@ -315,7 +327,7 @@ export async function loadBoard(
     await make(
       'chores',
       'Chores',
-      baseDefinition('chores'),
+      baseDefinition('chores', 'amber'),
       emptySnapshot('Household chores', { chores: [] }),
       'standard',
       { type: 'chores' },
@@ -324,7 +336,7 @@ export async function loadBoard(
       'welcome',
       'Make room for an idea',
       {
-        ...baseDefinition('composition', 'forest'),
+        ...baseDefinition('composition', 'violet'),
         nodes: [{ id: 'hello', type: 'text', children: [] }],
         summary: 'Ask Homeboard to make something useful.',
       },
@@ -352,7 +364,7 @@ export async function loadBoard(
       `initial-${scope.slice(0, 20)}-weather`,
       async () => ({
         title: 'Weather',
-        definition: baseDefinition('weather'),
+        definition: baseDefinition('weather', 'sky'),
         snapshot: await weatherSnapshot(weatherPlace(request)),
       }),
     ],
@@ -361,7 +373,7 @@ export async function loadBoard(
       `initial-${scope.slice(0, 20)}-chores`,
       async () => ({
         title: 'Chores',
-        definition: baseDefinition('chores'),
+        definition: baseDefinition('chores', 'amber'),
         snapshot: emptySnapshot('Household chores', { chores: [] }),
       }),
     ],
@@ -392,7 +404,27 @@ export async function loadBoard(
     }
   }
   for (let i = 0; i < widgets.length; i++) {
-    const widget = widgets[i];
+    let widget = widgets[i];
+    const wantedTone =
+      BOUND_TONES[widget.binding.type] ??
+      (widget.binding.type === 'ingest'
+        ? (INGEST_TONES[widget.binding.source ?? ''] ?? 'violet')
+        : undefined);
+    if (wantedTone && widget.definition.tone !== wantedTone) {
+      try {
+        widgets[i] = widget = await write(
+          owner,
+          widget,
+          { definition: { ...widget.definition, tone: wantedTone } },
+          crypto.randomUUID(),
+          false,
+        );
+      } catch (error) {
+        if (!(error instanceof WidgetError) || error.status !== 409)
+          throw error;
+        widgets[i] = widget = await getWidget(owner, widget.id);
+      }
+    }
     if (
       widget.title === 'Everyone’s day' &&
       widget.binding.type !== 'calendar'
@@ -915,7 +947,7 @@ export async function applyIngest(
       : Object.keys(clean).slice(0, 4);
     const types = new Map(declared.map((n) => [n.id, n.type]));
     const definition: Definition = {
-      ...baseDefinition('composition', 'forest'),
+      ...baseDefinition('composition', INGEST_TONES[input.source] ?? 'violet'),
       nodes: nodeIds.map((id) => ({
         id,
         type: (types.get(id) ?? 'metric') as LayoutNode['type'],

@@ -41,7 +41,7 @@ export type Definition = {
     | 'chores'
     | 'composition'
     | 'module';
-  tone: 'cream' | 'forest' | 'terracotta';
+  tone: Tone;
   nodes: LayoutNode[];
   module?: { html: string; css: string; js: string };
   summary: string;
@@ -80,6 +80,21 @@ export type Snapshot = {
   staleAt: string | null;
   expiresAt: string | null;
 };
+// The fixed widget palette — widgets only ever pick from these tones.
+// 'cream' stays as the light option; 'forest' remains valid for stored
+// widgets and renders as the emerald gradient.
+export const TONES = [
+  'indigo',
+  'sky',
+  'green',
+  'terracotta',
+  'emerald',
+  'amber',
+  'violet',
+  'cream',
+  'forest',
+] as const;
+export type Tone = (typeof TONES)[number];
 export type Widget = {
   id: string;
   definitionId: string;
