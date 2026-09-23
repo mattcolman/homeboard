@@ -18,6 +18,7 @@ function describeStep(step) {
   if (step.say !== undefined) return `say "${step.say}"`;
   if (step.expect) return 'expect';
   if (step.expect_state) return 'expect_state';
+  if (step.expect_artifact) return 'expect_artifact';
   if (step.action) return `action ${step.action}`;
   if (step.human) return 'human';
   if (step.run) return `run ${step.run}`;
@@ -88,7 +89,9 @@ export async function runScenario(scenario, options = {}) {
     options.owner ?? `eval-${scenario.id}-${startedAt.getTime().toString(36)}`;
   const board = boardFromEnv(owner);
   const executor = new ToolExecutor(board);
-  const log = options.verbose ? (line) => console.log(`      ${line}`) : () => {};
+  const log = options.verbose
+    ? (line) => console.log(`      ${line}`)
+    : () => {};
   const ctx = {
     scenario,
     owner,
@@ -127,7 +130,11 @@ export async function runScenario(scenario, options = {}) {
     if (assertion.judge) {
       const { value: rubric, unresolved } = interpolate(assertion.judge, ctx);
       if (unresolved.length)
-        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
+        return record(
+          index,
+          'blocked',
+          `${name} — unresolved ${unresolved.join(', ')}`,
+        );
       if (!turn)
         return record(index, 'fail', `${name} — no assistant turn to judge`);
       const verdict = await judge(rubric, {
@@ -197,7 +204,11 @@ export async function runScenario(scenario, options = {}) {
         ctx,
       );
       if (unresolved.length)
-        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
+        return record(
+          index,
+          'blocked',
+          `${name} — unresolved ${unresolved.join(', ')}`,
+        );
       return record(
         index,
         reply.includes(needle) ? 'pass' : 'fail',
@@ -272,7 +283,11 @@ export async function runScenario(scenario, options = {}) {
         ctx,
       );
       if (unresolved.length)
-        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
+        return record(
+          index,
+          'blocked',
+          `${name} — unresolved ${unresolved.join(', ')}`,
+        );
       if (!matches(JSON.stringify(widget.snapshot?.data ?? {}), needle))
         failures.push(
           `snapshot lacks ${needle instanceof RegExp ? needle : `"${needle}"`}`,
@@ -284,7 +299,11 @@ export async function runScenario(scenario, options = {}) {
         ctx,
       );
       if (unresolved.length)
-        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
+        return record(
+          index,
+          'blocked',
+          `${name} — unresolved ${unresolved.join(', ')}`,
+        );
       if (matches(JSON.stringify(widget.snapshot?.data ?? {}), needle))
         failures.push(
           `snapshot contains ${needle instanceof RegExp ? needle : `"${needle}"`}`,
@@ -297,9 +316,67 @@ export async function runScenario(scenario, options = {}) {
     );
   };
 
-  console.log(
-    `\n=== ${scenario.id} — ${scenario.title} (owner ${owner}) ===`,
-  );
+  const evaluateArtifactAssertion = async (assertion, index) => {
+    const name = assertionName(assertion, index);
+    const missing = missingCapabilities(assertion.requires);
+    if (missing.length)
+      return record(
+        index,
+        'blocked',
+        `${name} — ${missing.map((m) => m.detail).join('; ')}`,
+      );
+    const artifact = executor.artifact;
+    if (!artifact)
+      return record(index, 'fail', `${name} — no visual on screen`);
+    const html = artifact.definition?.module?.html ?? '';
+    if (assertion.kind !== undefined)
+      return record(
+        index,
+        artifact.definition?.kind === assertion.kind ? 'pass' : 'fail',
+        `${name} — artifact kind is '${artifact.definition?.kind ?? 'none'}'`,
+      );
+    if (assertion.min_visuals !== undefined) {
+      const count =
+        (html.match(/<img\b/gi) ?? []).length +
+        (html.match(/<svg\b/gi) ?? []).length;
+      return record(
+        index,
+        count >= assertion.min_visuals ? 'pass' : 'fail',
+        `${name} — ${count} visuals, needed ${assertion.min_visuals}`,
+      );
+    }
+    if (assertion.max_words !== undefined) {
+      const words = html
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean).length;
+      return record(
+        index,
+        words <= assertion.max_words ? 'pass' : 'fail',
+        `${name} — ${words} visible words, limit ${assertion.max_words}`,
+      );
+    }
+    if (assertion.judge) {
+      const { value: rubric, unresolved } = interpolate(assertion.judge, ctx);
+      if (unresolved.length)
+        return record(
+          index,
+          'blocked',
+          `${name} — unresolved ${unresolved.join(', ')}`,
+        );
+      const verdict = await judge(rubric, { page_html: html });
+      return record(
+        index,
+        verdict.pass ? 'pass' : 'fail',
+        `${name} — ${verdict.reason}`,
+      );
+    }
+    return record(index, 'fail', `${name} — unknown assertion shape`);
+  };
+
+  console.log(`\n=== ${scenario.id} — ${scenario.title} (owner ${owner}) ===`);
 
   let session = null;
   for (const [index, step] of scenario.steps.entries()) {
@@ -356,6 +433,9 @@ export async function runScenario(scenario, options = {}) {
         const widgets = (await board.list()).widgets;
         for (const [i, assertion] of step.expect_state.entries())
           await evaluateStateAssertion(assertion, index, widgets);
+      } else if (step.expect_artifact) {
+        for (const assertion of step.expect_artifact)
+          await evaluateArtifactAssertion(assertion, index);
       } else if (step.action) {
         const action = actions[step.action];
         if (!action)
@@ -376,11 +456,7 @@ export async function runScenario(scenario, options = {}) {
         }
         const { value: instructions } = interpolate(String(step.human), ctx);
         const answer = await ctx.askHuman(instructions);
-        record(
-          index,
-          answer === 'done' ? 'pass' : answer,
-          `human — ${answer}`,
-        );
+        record(index, answer === 'done' ? 'pass' : answer, `human — ${answer}`);
       } else if (step.run) {
         await new Promise((resolve, reject) => {
           const child = spawn(step.run, {

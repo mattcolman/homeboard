@@ -28,7 +28,7 @@ const {
 } = await import(
   pathToFileURL(`${process.cwd()}/.wrangler/widget-tests/model.mjs`)
 );
-const { validateGenerated } = await import(
+const { validateGenerated, validatePage } = await import(
   pathToFileURL(`${process.cwd()}/.wrangler/widget-tests/generation.mjs`)
 );
 const widget = (id, size = 'standard', layouts = {}) => ({
@@ -137,6 +137,37 @@ test('custom modules cannot ask for external resources or known unsafe APIs', ()
   input.module.js =
     'document.querySelector("button").addEventListener("click",()=>homeboard.setState({clicked:true}))';
   assert.equal(validateGenerated(input).definition.kind, 'module');
+});
+await test('pages allow https images but reject other external resources', () => {
+  const page = () => ({
+    title: 'How a plant grows',
+    summary: 'A seed becomes a plant in stages.',
+    tone: 'emerald',
+    timeSensitive: false,
+    html: '<figure><img src="https://upload.wikimedia.org/x.jpg" alt="seed" width="400" height="300"><figcaption>Seed</figcaption></figure>',
+    css: 'figure{margin:0}',
+    js: '',
+  });
+  const output = validatePage(page());
+  assert.equal(output.definition.kind, 'page');
+  assert.deepEqual(output.definition.nodes, [
+    { id: 'summary', type: 'text', children: [] },
+  ]);
+  assert.equal(
+    output.content.summary.text,
+    'A seed becomes a plant in stages.',
+  );
+  const bad = (html) => assert.throws(() => validatePage({ ...page(), html }));
+  bad('<img src="http://example.com/x.jpg">');
+  bad(
+    '<img src="https://example.com/x.jpg" srcset="https://example.com/x2.jpg 2x">',
+  );
+  bad('<a href="https://example.com">link</a>');
+  bad('<script>alert(1)</script>');
+  bad('<button onclick="go()">Go</button>');
+  assert.throws(() =>
+    validatePage({ ...page(), css: 'body{background:url(https://x)}' }),
+  );
 });
 test('freshness and source URL boundaries are explicit', () => {
   assert.equal(isExpired({ expiresAt: '2020-01-01T00:00:00Z' }), true);

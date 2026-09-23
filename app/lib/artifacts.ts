@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { ARTIFACT_TTL_MS, validateState, type Artifact } from './widgets/model';
-import { generateWidget } from './widgets/generation';
+import { generatePage, generateWidget } from './widgets/generation';
 import { createWidget, getWidget, WidgetError } from './widgets/store';
 
 const db = () => (env as unknown as { DB: D1Database }).DB;
@@ -60,7 +60,7 @@ export async function getArtifact(
 export async function createArtifact(
   owner: string,
   query: string,
-  generate: Generate = generateWidget,
+  generate: Generate = generatePage,
 ): Promise<Artifact> {
   if (!query.trim() || query.length > 1200)
     throw new WidgetError('Ask a short, specific question.');
@@ -90,9 +90,10 @@ export async function refineArtifact(
   owner: string,
   id: string,
   instruction: string,
-  generate: Generate = generateWidget,
+  generate?: Generate,
 ): Promise<Artifact> {
   const a = await getArtifact(owner, id);
+  generate ??= a.definition.kind === 'page' ? generatePage : generateWidget;
   instruction = instruction.trim();
   if (!instruction || instruction.length > 800)
     throw new WidgetError('Describe how to change this visual.');
@@ -137,18 +138,26 @@ export async function setArtifactState(
 export async function promoteArtifact(
   owner: string,
   id: string,
+  generate: Generate = generateWidget,
 ): Promise<{ widget: import('./widgets/model').Widget; artifact: Artifact }> {
   const a = await getArtifact(owner, id);
   if (a.promotedWidgetId)
     return { widget: await getWidget(owner, a.promotedWidgetId), artifact: a };
+  // A free-form page can't persist as a widget; keeping it re-generates a
+  // structured widget from the same question.
+  const generated =
+    a.definition.kind === 'page' ? await generate(a.query) : null;
   const widget = await createWidget(owner, {
-    title: a.title,
-    definition: a.definition,
-    snapshot: a.snapshot,
-    state: a.state,
+    title: generated?.title ?? a.title,
+    definition: generated?.definition ?? a.definition,
+    snapshot: generated?.snapshot ?? a.snapshot,
+    state: generated ? {} : a.state,
     query: a.query,
     pinned: true,
-    size: a.definition.kind === 'module' ? 'wide' : 'standard',
+    size:
+      (generated?.definition ?? a.definition).kind === 'module'
+        ? 'wide'
+        : 'standard',
   });
   await db()
     .prepare(

@@ -40,7 +40,8 @@ export type Definition = {
     | 'weather'
     | 'chores'
     | 'composition'
-    | 'module';
+    | 'module'
+    | 'page';
   tone: Tone;
   nodes: LayoutNode[];
   module?: { html: string; css: string; js: string };
