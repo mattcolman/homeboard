@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { validateState, type Widget } from '@/app/lib/widgets/model';
 
 const escapeJson = (value: unknown) =>
@@ -62,23 +62,34 @@ async function inlinePageImages(html: string) {
   );
   return html.replace(PAGE_IMAGE_SRC, (url) => resolved.get(url) ?? url);
 }
-function useInlinedPageHtml(widget: Widget): string | null {
+// Freezes the boot document for this activation: page images are inlined
+// first, and later state updates must not reload the iframe.
+function useFrozenDocument(widget: Widget, nonce: string): string | null {
   const visual = widget.definition.module;
   const page = widget.definition.kind === 'page';
-  const [html, setHtml] = useState<string | null>(() =>
-    page ? null : (visual?.html ?? ''),
+  const [document, setDocument] = useState<string | null>(() =>
+    page ? null : makeDocument(widget, nonce),
   );
   useEffect(() => {
-    if (!page || !visual) return;
+    if (!page || !visual || document !== null) return;
     let live = true;
-    void inlinePageImages(visual.html).then((resolved) => {
-      if (live) setHtml(resolved);
+    void inlinePageImages(visual.html).then((html) => {
+      if (live)
+        setDocument(
+          makeDocument(
+            {
+              ...widget,
+              definition: { ...widget.definition, module: { ...visual, html } },
+            },
+            nonce,
+          ),
+        );
     });
     return () => {
       live = false;
     };
-  }, [page, visual]);
-  return html;
+  }, [page, visual, document, widget, nonce]);
+  return document;
 }
 
 function SandboxFrame({ widget, onState, fallback }: Props) {
@@ -87,27 +98,7 @@ function SandboxFrame({ widget, onState, fallback }: Props) {
   const [failed, setFailed] = useState(false),
     [ready, setReady] = useState(false);
   const [nonce] = useState(() => crypto.randomUUID().replaceAll('-', ''));
-  const html = useInlinedPageHtml(widget);
-  // Freeze the boot document for this activation. State updates must not reload the iframe.
-  const document = useMemo(
-    () =>
-      html === null
-        ? null
-        : makeDocument(
-            {
-              ...widget,
-              definition: {
-                ...widget.definition,
-                module: {
-                  ...(widget.definition.module ?? { css: '', js: '' }),
-                  html,
-                },
-              },
-            },
-            nonce,
-          ),
-    [html, nonce, widget],
-  );
+  const document = useFrozenDocument(widget, nonce);
   useEffect(() => {
     handler.current = onState;
   }, [onState]);
