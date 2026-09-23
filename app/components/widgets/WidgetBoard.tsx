@@ -45,8 +45,8 @@ import {
 import {
   columnsForWidth,
   isExpired,
-  isStale,
   packWidgets,
+  relativeTime,
   safeUrl,
   stepId,
   supportsSmall,
@@ -59,13 +59,14 @@ import {
 } from '@/app/lib/widgets/model';
 import type { Recipe } from '@/app/lib/recipes';
 import { CustomWidget } from './CustomWidget';
+import { Freshness } from './Freshness';
 
 export type WidgetAction = (
   widget: Widget,
   action: string,
   args?: Record<string, unknown>,
 ) => Promise<Widget | undefined>;
-class WidgetBoundary extends Component<
+export class WidgetBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }
 > {
@@ -84,7 +85,7 @@ class WidgetBoundary extends Component<
   }
 }
 
-function Composition({
+export function Composition({
   widget,
   nodes,
   onToggle,
@@ -553,9 +554,8 @@ const KIND_BADGE: Record<
   composition: { icon: Sparkles, color: '#6d4be0' },
   module: { icon: Puzzle, color: '#6d4be0' },
 };
-function badgeFor(widget: Widget) {
-  if (widget.binding.source === 'golf')
-    return { icon: Flag, color: '#0f7a50' };
+export function badgeFor(widget: Widget) {
+  if (widget.binding.source === 'golf') return { icon: Flag, color: '#0f7a50' };
   return KIND_BADGE[widget.definition.kind] ?? KIND_BADGE.composition;
 }
 
@@ -806,7 +806,10 @@ function WidgetContent({
   if (isExpired(widget.snapshot))
     return (
       <div className="widget-unavailable">
-        <p>This information has expired.</p>
+        <p>
+          This information expired. Last updated{' '}
+          {relativeTime(widget.snapshot.fetchedAt)}.
+        </p>
         <button
           disabled={offline}
           onClick={() => void action(widget, 'refresh')}
@@ -941,12 +944,6 @@ function WidgetShell({
     return () => observer.disconnect();
   }, [widget, focus]);
   const source = widget.snapshot.source;
-  const date = new Date(widget.snapshot.fetchedAt).toLocaleString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
   const position = widget.layouts[columns];
   return (
     <article
@@ -1114,16 +1111,11 @@ function WidgetShell({
       <footer className="widget-footer">
         <div>
           <span>{source}</span>
-          {!source.startsWith('Example') && source !== 'Homeboard' && (
-            <time dateTime={widget.snapshot.fetchedAt}>
-              {offline
-                ? 'Saved '
-                : isStale(widget.snapshot)
-                  ? 'Update due · '
-                  : ''}
-              {date}
-            </time>
-          )}
+          <Freshness
+            snapshot={widget.snapshot}
+            offline={offline}
+            onRefresh={busy ? undefined : () => void action(widget, 'refresh')}
+          />
         </div>
         <button
           className="widget-expand"

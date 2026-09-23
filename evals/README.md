@@ -82,6 +82,7 @@ other keys live in `capabilities.mjs`).
 
 - `{ judge: '<rubric>' }` — LLM judge grades reply + tool calls strictly
 - `{ tool_called: 'name' }` or `{ name, args: {…} }`
+- `{ tool_not_called: 'name' }` — the named tool was not invoked
 - `{ no_tool_call: true }`
 - `{ reply_includes: 'text' }`, `{ reply_matches: /re/ }`,
   `{ reply_not_matches: /re/ }`, `{ reply_max_words: 12 }`

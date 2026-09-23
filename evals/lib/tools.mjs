@@ -8,6 +8,7 @@ export class ToolExecutor {
     this.board = board;
     this.focused = null;
     this.choices = [];
+    this.artifact = null;
   }
 
   async execute(name, argsJson) {
@@ -59,7 +60,64 @@ export class ToolExecutor {
             pinned: w.pinned,
           })),
           focused: this.focused,
+          visual: this.artifact
+            ? { id: this.artifact.id, title: this.artifact.title }
+            : null,
         };
+
+      case 'show_visual': {
+        try {
+          const artifact = await this.board.showVisual(
+            typeof args.query === 'string' ? args.query : '',
+          );
+          this.artifact = artifact;
+          this.focused = null;
+          this.choices = [];
+          return {
+            shown: true,
+            title: artifact.title,
+            id: artifact.id,
+            summary: artifact.definition.summary.slice(0, 300),
+          };
+        } catch (error) {
+          return {
+            shown: false,
+            fallback: true,
+            reason:
+              error instanceof Error
+                ? error.message
+                : 'The visual could not be made.',
+          };
+        }
+      }
+
+      case 'control_visual': {
+        const current = this.artifact;
+        if (!current) throw Error('No visual is open. Ask what to show.');
+        if (args.action === 'keep') {
+          const { widget } = await this.board.artifactAct(current.id, 'keep');
+          this.artifact = null;
+          this.focused = widget.id;
+          return { kept: true, title: widget.title };
+        }
+        if (args.action === 'refine') {
+          const { artifact } = await this.board.artifactAct(
+            current.id,
+            'refine',
+            {
+              instruction:
+                typeof args.instruction === 'string' ? args.instruction : '',
+            },
+          );
+          this.artifact = artifact;
+          return { updated: artifact.title };
+        }
+        if (args.action === 'close') {
+          this.artifact = null;
+          return { closed: true };
+        }
+        throw Error('That action is not supported.');
+      }
 
       case 'create_widget': {
         const result = await this.board.resolve(
@@ -77,6 +135,35 @@ export class ToolExecutor {
         if (args.action === 'board') {
           this.focused = null;
           return { displayed: 'board' };
+        }
+        if (!args.widget && this.artifact) {
+          const current = this.artifact;
+          if (args.action === 'keep') {
+            const { widget } = await this.board.artifactAct(
+              current.id,
+              'keep',
+            );
+            this.artifact = null;
+            this.focused = widget.id;
+            return { updated: widget.title };
+          }
+          if (args.action === 'refine') {
+            const { artifact } = await this.board.artifactAct(
+              current.id,
+              'refine',
+              {
+                instruction:
+                  typeof args.instruction === 'string' ? args.instruction : '',
+              },
+            );
+            this.artifact = artifact;
+            return { updated: artifact.title };
+          }
+          if (args.action === 'remove') {
+            await this.board.artifactAct(current.id, 'dismiss');
+            this.artifact = null;
+            return { updated: current.title };
+          }
         }
         const widget = await this.#selected(args.widget);
         if (args.action === 'focus') {

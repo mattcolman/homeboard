@@ -24,6 +24,7 @@ const {
   safeUrl,
   validateState,
   isExpired,
+  relativeTime,
 } = await import(
   pathToFileURL(`${process.cwd()}/.wrangler/widget-tests/model.mjs`)
 );
@@ -148,4 +149,21 @@ test('freshness and source URL boundaries are explicit', () => {
     'https://user:secret@example.com',
   ])
     assert.equal(safeUrl(url), false);
+});
+await test('relative times are short, human labels', () => {
+  const now = new Date('2026-02-20T12:00:00Z').getTime();
+  assert.equal(relativeTime('2026-02-20T11:59:40Z', now), 'just now');
+  assert.equal(relativeTime('2026-02-20T11:55:00Z', now), '5 min ago');
+  assert.equal(relativeTime('2026-02-20T09:00:00Z', now), '3 h ago');
+  assert.equal(relativeTime('2026-02-19T12:00:00Z', now), 'yesterday');
+  assert.equal(relativeTime('2026-02-16T12:00:00Z', now), '4 days ago');
+  assert.equal(
+    relativeTime('2026-01-10T12:00:00Z', now),
+    new Date('2026-01-10T12:00:00Z').toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+    }),
+  );
+  assert.equal(relativeTime('2026-03-01T00:00:00Z', now), 'just now');
+  assert.equal(relativeTime('not-a-date', now), 'just now');
 });

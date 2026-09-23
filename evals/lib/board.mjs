@@ -111,6 +111,38 @@ export class Board {
     if (!response.ok) throw Error('The recipe could not be saved.');
   }
 
+  async #postArtifacts(body) {
+    const response = await fetch(`${this.base}/api/artifacts`, {
+      method: 'POST',
+      headers: this.#headers(true),
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw Error(data.error ?? `Request failed (${response.status}).`);
+    return data;
+  }
+
+  async artifacts() {
+    const response = await fetch(`${this.base}/api/artifacts`, {
+      headers: this.#headers(false),
+      cache: 'no-store',
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw Error(data.error ?? `Artifacts load failed (${response.status}).`);
+    return data.artifacts ?? [];
+  }
+
+  async showVisual(query) {
+    const data = await this.#postArtifacts({ action: 'create', query });
+    return data.artifact;
+  }
+
+  async artifactAct(id, action, args = {}) {
+    return this.#postArtifacts({ action, id, ...args });
+  }
+
   async ingest(payload) {
     const response = await fetch(`${this.base}/api/ingest`, {
       method: 'POST',

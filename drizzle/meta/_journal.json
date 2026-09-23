@@ -43,6 +43,13 @@
       "when": 1790058434940,
       "tag": "0005_loving_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790076785766,
+      "tag": "0006_quiet_artifact",
+      "breakpoints": true
     }
   ]
 }
