@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { validateState, type Widget } from '@/app/lib/widgets/model';
 
 const escapeJson = (value: unknown) =>
@@ -16,16 +16,69 @@ function makeDocument(widget: Widget, nonce: string) {
   const visual = widget.definition.module;
   if (!visual) return '';
   const page = widget.definition.kind === 'page';
-  // srcdoc runs on an opaque origin, so kept generated images (/api/…) need
-  // the parent's explicit origin in the page CSP.
-  const origin = typeof location !== 'undefined' ? location.origin : '';
   const bootstrap = `const channel=${escapeJson(nonce)}; const send=(type,value)=>window.parent.postMessage({channel,type,value},'*');
       const initial=${escapeJson(widget.state.custom ?? {})};
       const homeboard=Object.freeze({data:${escapeJson(widget.snapshot.data.content ?? {})},state:initial,setState(value){Object.assign(initial,value);send('state',{...initial})}});
       window.addEventListener('error',()=>send('error'));window.addEventListener('unhandledrejection',()=>send('error'));
       ${page ? `document.querySelectorAll('img').forEach(i=>i.addEventListener('error',()=>(i.closest('figure')||i).remove()));` : ''}
       try{(function(homeboard){'use strict';${visual.js}\n})(homeboard);send('ready')}catch{send('error')}`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src ${page ? `https: data: ${origin}` : 'data:'}; connect-src 'none'; font-src 'none'; media-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; navigate-to 'none'"><style>:root{--background:#ffffff;--foreground:#0e1526;--primary:#0e1526;--muted:#edf1f5;--border:#dfe5ec;--accent:#0430eb;color-scheme:light}*{box-sizing:border-box}body{margin:0;color:var(--foreground);background:var(--background);font:18px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}h1,h2,h3{font-family:'Avenir Next',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;letter-spacing:-.02em}button,input,select{font:inherit;min-height:48px;max-width:100%}button{background:var(--primary);color:white;border:0;border-radius:12px;padding:10px 16px}svg,canvas{max-width:100%}*:focus-visible{outline:3px solid var(--accent);outline-offset:3px}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}${page ? 'body{padding:16px}img{max-width:100%;height:auto;display:block}figure{margin:0}' : ''}${visual.css.replace(/<\/style/gi, '')}</style></head><body>${visual.html}<script nonce="${nonce}">${bootstrap}</script></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src ${page ? 'https: data:' : 'data:'}; connect-src 'none'; font-src 'none'; media-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; navigate-to 'none'"><style>:root{--background:#ffffff;--foreground:#0e1526;--primary:#0e1526;--muted:#edf1f5;--border:#dfe5ec;--accent:#0430eb;color-scheme:light}*{box-sizing:border-box}body{margin:0;color:var(--foreground);background:var(--background);font:18px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}h1,h2,h3{font-family:'Avenir Next',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;letter-spacing:-.02em}button,input,select{font:inherit;min-height:48px;max-width:100%}button{background:var(--primary);color:white;border:0;border-radius:12px;padding:10px 16px}svg,canvas{max-width:100%}*:focus-visible{outline:3px solid var(--accent);outline-offset:3px}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}${page ? 'body{padding:16px}img{max-width:100%;height:auto;display:block}figure{margin:0}' : ''}${visual.css.replace(/<\/style/gi, '')}</style></head><body>${visual.html}<script nonce="${nonce}">${bootstrap}</script></body></html>`;
+}
+
+// Generated illustrations live behind /api/artifacts/images, which a
+// sandboxed opaque-origin frame must never fetch. The parent loads them
+// same-origin and substitutes data: URLs into the page html; fetches are
+// cached per image so refines and re-renders don't repeat them.
+const PAGE_IMAGE_SRC = /\/api\/artifacts\/images\/[0-9a-f-]{36}/gi;
+const pageImageCache = new Map<string, Promise<string>>();
+function fetchPageImage(url: string) {
+  let cached = pageImageCache.get(url);
+  if (!cached) {
+    cached = fetch(url, { credentials: 'same-origin' })
+      .then(async (response) => {
+        if (!response.ok) throw Error();
+        const blob = await response.blob();
+        return await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === 'string') resolve(reader.result);
+            else reject(reader.error);
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+      })
+      .catch(() => url);
+    pageImageCache.set(url, cached);
+  }
+  return cached;
+}
+async function inlinePageImages(html: string) {
+  const urls = [...new Set(html.match(PAGE_IMAGE_SRC) ?? [])];
+  const resolved = new Map(
+    await Promise.all(
+      urls.map(async (url) => [url, await fetchPageImage(url)] as const),
+    ),
+  );
+  return html.replace(PAGE_IMAGE_SRC, (url) => resolved.get(url) ?? url);
+}
+function useInlinedPageHtml(widget: Widget): string | null {
+  const visual = widget.definition.module;
+  const page = widget.definition.kind === 'page';
+  const [html, setHtml] = useState<string | null>(() =>
+    page ? null : (visual?.html ?? ''),
+  );
+  useEffect(() => {
+    if (!page || !visual) return;
+    let live = true;
+    void inlinePageImages(visual.html).then((resolved) => {
+      if (live) setHtml(resolved);
+    });
+    return () => {
+      live = false;
+    };
+  }, [page, visual]);
+  return html;
 }
 
 function SandboxFrame({ widget, onState, fallback }: Props) {
@@ -33,15 +86,33 @@ function SandboxFrame({ widget, onState, fallback }: Props) {
     handler = useRef(onState);
   const [failed, setFailed] = useState(false),
     [ready, setReady] = useState(false);
+  const [nonce] = useState(() => crypto.randomUUID().replaceAll('-', ''));
+  const html = useInlinedPageHtml(widget);
   // Freeze the boot document for this activation. State updates must not reload the iframe.
-  const [{ nonce, document }] = useState(() => {
-    const nonce = crypto.randomUUID().replaceAll('-', '');
-    return { nonce, document: makeDocument(widget, nonce) };
-  });
+  const document = useMemo(
+    () =>
+      html === null
+        ? null
+        : makeDocument(
+            {
+              ...widget,
+              definition: {
+                ...widget.definition,
+                module: {
+                  ...(widget.definition.module ?? { css: '', js: '' }),
+                  html,
+                },
+              },
+            },
+            nonce,
+          ),
+    [html, nonce, widget],
+  );
   useEffect(() => {
     handler.current = onState;
   }, [onState]);
   useEffect(() => {
+    if (document === null) return;
     let calls = 0,
       windowStart = Date.now();
     const receive = (event: MessageEvent) => {
@@ -79,10 +150,10 @@ function SandboxFrame({ widget, onState, fallback }: Props) {
       window.removeEventListener('message', receive);
       clearTimeout(timeout);
     };
-  }, [nonce]);
+  }, [nonce, document]);
   return (
     <>
-      {!failed && (
+      {!failed && document !== null && (
         <iframe
           ref={frame}
           title={`${widget.title} interactive visual`}
