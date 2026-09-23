@@ -23,6 +23,12 @@ async function call(input) {
   return { status: r.status, body: await r.json() };
 }
 
+// iCloud calendar ids are long CalDAV URLs, well past D1's LIKE pattern limit.
+const CAL_A =
+  'https://p01-caldav.icloud.com/1234567890/calendars/ABCDEF01-2345-6789-ABCD-EF0123456789/';
+const CAL_B =
+  'https://p01-caldav.icloud.com/1234567890/calendars/FEDCBA98-7654-3210-DCBA-987654321000/';
+
 test('family members can be added, edited and removed', async () => {
   assert.equal((await call({ action: 'save', name: '' })).status, 400);
 
@@ -31,35 +37,32 @@ test('family members can be added, edited and removed', async () => {
     name: 'Matt',
     color: '#5f92e7',
     emoji: '⛳',
-    calendarIds: ['cal-a', 'cal-b'],
+    calendarIds: [CAL_A, CAL_B],
   });
   assert.equal(body.members.length, 1);
   const matt = body.members[0];
   assert.equal(matt.name, 'Matt');
-  assert.deepEqual(matt.calendarIds, ['cal-a', 'cal-b']);
+  assert.deepEqual(matt.calendarIds, [CAL_A, CAL_B]);
 
   // The board payload carries members for the calendar view.
   const board = await (
-    await widgetsRoute.GET(
-      new Request(`${base}/api/widgets`, { headers }),
-    )
+    await widgetsRoute.GET(new Request(`${base}/api/widgets`, { headers }))
   ).json();
   assert.equal(board.members[0].name, 'Matt');
 
-  // A calendar can only belong to one person: assigning cal-b to Sophie
+  // A calendar can only belong to one person: assigning the second calendar to Sophie
   // removes it from Matt.
   const { body: updated } = await call({
     action: 'save',
     name: 'Sophie',
     color: '#e05a8a',
     emoji: '🐨',
-    calendarIds: ['cal-b'],
+    calendarIds: [CAL_B],
   });
   assert.equal(updated.members.length, 2);
-  assert.deepEqual(
-    updated.members.find((m) => m.name === 'Matt').calendarIds,
-    ['cal-a'],
-  );
+  assert.deepEqual(updated.members.find((m) => m.name === 'Matt').calendarIds, [
+    CAL_A,
+  ]);
 
   // Editing the same member keeps it one row.
   const { body: renamed } = await call({
@@ -68,7 +71,7 @@ test('family members can be added, edited and removed', async () => {
     name: 'Matthew',
     color: matt.color,
     emoji: matt.emoji,
-    calendarIds: ['cal-a'],
+    calendarIds: [CAL_A],
   });
   assert.equal(renamed.members.length, 2);
   assert.equal(renamed.members[0].name, 'Matthew');
