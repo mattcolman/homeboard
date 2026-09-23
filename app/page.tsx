@@ -417,13 +417,20 @@ export default function Homeboard() {
               0,
               steps.findIndex((s) => stepId(s) === current.state.stepId),
             ),
-            next = Math.max(
-              0,
-              Math.min(
-                steps.length - 1,
-                index + (args.direction === 'previous' ? -1 : 1),
-              ),
-            ),
+            jump =
+              typeof args.stepId === 'string'
+                ? steps.findIndex((s) => stepId(s) === args.stepId)
+                : -1,
+            next =
+              jump >= 0
+                ? jump
+                : Math.max(
+                    0,
+                    Math.min(
+                      steps.length - 1,
+                      index + (args.direction === 'previous' ? -1 : 1),
+                    ),
+                  ),
             id = stepId(steps[next]);
           const updated = {
             ...current,
