@@ -32,6 +32,7 @@ import {
   Moon,
   MoreHorizontal,
   Pin,
+  Play,
   Plus,
   Puzzle,
   RefreshCw,
@@ -238,36 +239,25 @@ function RecipeBody({
   onShopping: (widget: Widget) => void;
   offline: boolean;
 }) {
-  const recipe = widget.snapshot.data.recipe;
+  const recipe = widget.snapshot.data.recipe,
+    index = recipe
+      ? Math.max(
+          0,
+          recipe.steps.findIndex((s) => stepId(s) === widget.state.stepId),
+        )
+      : 0;
+  const currentStepRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (focus)
+      currentStepRef.current?.scrollIntoView({
+        block: 'nearest',
+        behavior: 'smooth',
+      });
+  }, [focus, index]);
   if (!recipe)
     return <p className="widget-note">This recipe is unavailable.</p>;
-  const index = Math.max(
-    0,
-    recipe.steps.findIndex((s) => stepId(s) === widget.state.stepId),
-  );
-  return (
-    <div className={`recipe-widget ${focus ? 'recipe-expanded' : ''}`}>
-      <div className="widget-recipe-meta">
-        {recipe.totalMinutes && <span>{recipe.totalMinutes} min</span>}
-        <span>{recipe.servings || 'Family recipe'}</span>
-      </div>
-      {!focus && recipe.description && (
-        <p className="widget-text">{recipe.description}</p>
-      )}
-      <div className="recipe-cooking">
-        <p className="widget-label">
-          Step {index + 1} of {recipe.steps.length}
-        </p>
-        <p
-          className={
-            widget.definition.summary === 'large-steps'
-              ? 'recipe-instruction large'
-              : 'recipe-instruction'
-          }
-        >
-          {recipe.steps[index]}
-        </p>
-      </div>
+  const large = widget.definition.summary === 'large-steps',
+    stepControls = (
       <div className="recipe-step-controls">
         <button
           aria-label="Previous recipe step"
@@ -285,6 +275,43 @@ function RecipeBody({
           <ChevronRight />
         </button>
       </div>
+    );
+  return (
+    <div className={`recipe-widget ${focus ? 'recipe-expanded' : ''}`}>
+      {safeUrl(recipe.imageUrl) && (
+        // oxlint-disable-next-line no-img-element -- external recipe images need no-referrer, not next/image optimisation
+        <img
+          className="recipe-hero"
+          src={recipe.imageUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          loading="lazy"
+        />
+      )}
+      <div className="widget-recipe-meta">
+        {recipe.totalMinutes && <span>{recipe.totalMinutes} min</span>}
+        <span>{recipe.servings || 'Family recipe'}</span>
+      </div>
+      {!focus && (
+        <>
+          {recipe.description && (
+            <p className="widget-text">{recipe.description}</p>
+          )}
+          <div className="recipe-cooking">
+            <p className="widget-label">
+              Step {index + 1} of {recipe.steps.length}
+            </p>
+            <p
+              className={
+                large ? 'recipe-instruction large' : 'recipe-instruction'
+              }
+            >
+              {recipe.steps[index]}
+            </p>
+          </div>
+          {stepControls}
+        </>
+      )}
       {focus && (
         <>
           <button
@@ -295,28 +322,74 @@ function RecipeBody({
             <Pin />
             Save as a favourite
           </button>
-          <details className="widget-ingredients">
-            <summary>Ingredients · {recipe.ingredients.length}</summary>
-            <ul>
-              {recipe.ingredients.map((ingredient, i) => (
-                <li key={i}>{ingredient}</li>
-              ))}
-            </ul>
-            <button disabled={offline} onClick={() => onShopping(widget)}>
-              <ShoppingBasket />
-              Add to shopping
-            </button>
-          </details>
-          {safeUrl(recipe.videoUrl) && (
-            <a
-              className="widget-video"
-              href={recipe.videoUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Watch the original video
-            </a>
-          )}
+          <div className="recipe-focus-grid">
+            <div>
+              <section className="widget-ingredients">
+                <h3 className="widget-label">
+                  Ingredients · {recipe.ingredients.length}
+                </h3>
+                <ul>
+                  {recipe.ingredients.map((ingredient, i) => (
+                    <li key={i}>{ingredient}</li>
+                  ))}
+                </ul>
+                <button disabled={offline} onClick={() => onShopping(widget)}>
+                  <ShoppingBasket />
+                  Add to shopping
+                </button>
+              </section>
+              {safeUrl(recipe.videoUrl) && (
+                <a
+                  className="recipe-video"
+                  href={recipe.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Watch the original video"
+                >
+                  {safeUrl(recipe.imageUrl) && (
+                    // oxlint-disable-next-line no-img-element -- external recipe images need no-referrer, not next/image optimisation
+                    <img
+                      src={recipe.imageUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                    />
+                  )}
+                  <span className="recipe-video-play">
+                    <Play />
+                  </span>
+                  <span className="recipe-video-caption">
+                    Watch the original video
+                  </span>
+                </a>
+              )}
+            </div>
+            <div>
+              <ol className={`recipe-steps${large ? ' large' : ''}`}>
+                {recipe.steps.map((step, i) => (
+                  <li
+                    key={stepId(step)}
+                    ref={i === index ? currentStepRef : undefined}
+                    className={
+                      i === index ? 'is-current' : i < index ? 'is-done' : ''
+                    }
+                  >
+                    <button
+                      type="button"
+                      aria-current={i === index ? 'step' : undefined}
+                      onClick={() =>
+                        void action(widget, 'step', { stepId: stepId(step) })
+                      }
+                    >
+                      <span className="recipe-step-number">{i + 1}</span>
+                      {step}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              {stepControls}
+            </div>
+          </div>
         </>
       )}
     </div>

@@ -1099,13 +1099,20 @@ export async function actOnWidget(
         0,
         steps.findIndex((s) => stepId(s) === current.state.stepId),
       );
-      const next = Math.max(
-        0,
-        Math.min(
-          steps.length - 1,
-          index + (input.direction === 'previous' ? -1 : 1),
-        ),
-      );
+      const jump =
+        typeof input.stepId === 'string'
+          ? steps.findIndex((s) => stepId(s) === input.stepId)
+          : -1;
+      const next =
+        jump >= 0
+          ? jump
+          : Math.max(
+              0,
+              Math.min(
+                steps.length - 1,
+                index + (input.direction === 'previous' ? -1 : 1),
+              ),
+            );
       return write(
         owner,
         current,
