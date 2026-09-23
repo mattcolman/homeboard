@@ -73,9 +73,7 @@ export async function saveMember(
   const statements = [];
   if (!existing) {
     const count = await db()
-      .prepare(
-        'SELECT COUNT(*) AS count FROM family_members WHERE owner_id=?',
-      )
+      .prepare('SELECT COUNT(*) AS count FROM family_members WHERE owner_id=?')
       .bind(owner)
       .first<{ count: number }>();
     if ((count?.count ?? 0) >= 12)
@@ -113,9 +111,11 @@ export async function saveMember(
           `UPDATE family_members SET calendar_ids_json=(
              SELECT json_group_array(value) FROM json_each(calendar_ids_json)
              WHERE value != ?
-           ) WHERE owner_id=? AND id != ? AND calendar_ids_json LIKE ?`,
+           ) WHERE owner_id=? AND id != ? AND EXISTS (
+             SELECT 1 FROM json_each(calendar_ids_json) WHERE value = ?
+           )`,
         )
-        .bind(calendarId, owner, id, `%"${calendarId.replace(/[%_]/g, '')}"%`),
+        .bind(calendarId, owner, id, calendarId),
     );
   await db().batch(statements);
   return listMembers(owner);
