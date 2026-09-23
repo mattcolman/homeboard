@@ -257,6 +257,12 @@ function RecipeBody({
   if (!recipe)
     return <p className="widget-note">This recipe is unavailable.</p>;
   const large = widget.definition.summary === 'large-steps',
+    meta = (
+      <div className="widget-recipe-meta">
+        {recipe.totalMinutes && <span>{recipe.totalMinutes} min</span>}
+        <span>{recipe.servings || 'Family recipe'}</span>
+      </div>
+    ),
     stepControls = (
       <div className="recipe-step-controls">
         <button
@@ -278,20 +284,35 @@ function RecipeBody({
     );
   return (
     <div className={`recipe-widget ${focus ? 'recipe-expanded' : ''}`}>
-      {safeUrl(recipe.imageUrl) && (
-        // oxlint-disable-next-line no-img-element -- external recipe images need no-referrer, not next/image optimisation
-        <img
-          className="recipe-hero"
-          src={recipe.imageUrl}
-          alt=""
-          referrerPolicy="no-referrer"
-          loading="lazy"
-        />
+      {focus ? (
+        <>
+          {safeUrl(recipe.imageUrl) && (
+            // oxlint-disable-next-line no-img-element -- external recipe images need no-referrer, not next/image optimisation
+            <img
+              className="recipe-hero"
+              src={recipe.imageUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
+          )}
+          {meta}
+        </>
+      ) : (
+        <div className="recipe-compact-head">
+          {safeUrl(recipe.imageUrl) && (
+            // oxlint-disable-next-line no-img-element -- external recipe images need no-referrer, not next/image optimisation
+            <img
+              className="recipe-thumb"
+              src={recipe.imageUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
+          )}
+          {meta}
+        </div>
       )}
-      <div className="widget-recipe-meta">
-        {recipe.totalMinutes && <span>{recipe.totalMinutes} min</span>}
-        <span>{recipe.servings || 'Family recipe'}</span>
-      </div>
       {!focus && (
         <>
           {recipe.description && (

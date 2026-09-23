@@ -247,6 +247,7 @@
 }
 .is-colored .recipe-steps .is-current .recipe-step-number {
   background: #ffffff;
+  color: #0e1526;
 }
 .is-colored .recipe-step-controls button,
 .is-colored .widget-ingredients button,
@@ -935,6 +936,23 @@
   background: transparent;
   color: inherit;
 }
+.recipe-compact-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.recipe-compact-head .widget-recipe-meta {
+  margin-bottom: 0;
+}
+.recipe-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 12px;
+  flex-shrink: 0;
+  margin: 0;
+}
 .recipe-hero {
   display: block;
   width: 100%;
@@ -1389,6 +1407,12 @@
   .homeboard-header-actions {
     gap: 8px;
   }
+  .recipe-focus-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .recipe-steps.large button {
+    font-size: 1.6rem;
+  }
 }
 @media (max-width: 600px) {
   .homeboard-app {
@@ -1437,12 +1461,6 @@
   }
   .is-focused .recipe-instruction,
   .is-focused .recipe-instruction.large {
-    font-size: 1.6rem;
-  }
-  .recipe-focus-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .recipe-steps.large button {
     font-size: 1.6rem;
   }
   .request-dialog {
