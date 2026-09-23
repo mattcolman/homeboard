@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CalendarDays, Images, LayoutGrid } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 const LINKS = [
   { href: '/', label: 'Board', icon: LayoutGrid },
@@ -25,6 +26,8 @@ export function SiteNav() {
           <Icon />
         </Link>
       ))}
+      <span className="site-nav-divider" aria-hidden="true" />
+      <ThemeToggle />
     </nav>
   );
 }

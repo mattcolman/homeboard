@@ -13,6 +13,7 @@ import {
   MEMBER_COLORS,
   MEMBER_EMOJIS,
 } from '../lib/family-palette';
+import { ThemeToggle } from '../components/ThemeToggle';
 import '../connections/connections.css';
 import './family.css';
 
@@ -163,6 +164,7 @@ export default function Family() {
             <small>Who lives here</small>
           </div>
         </div>
+        <ThemeToggle />
       </header>
 
       <section className="connection-intro">
