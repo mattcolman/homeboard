@@ -89,9 +89,7 @@ export async function runScenario(scenario, options = {}) {
     options.owner ?? `eval-${scenario.id}-${startedAt.getTime().toString(36)}`;
   const board = boardFromEnv(owner);
   const executor = new ToolExecutor(board);
-  const log = options.verbose
-    ? (line) => console.log(`      ${line}`)
-    : () => {};
+  const log = options.verbose ? (line) => console.log(`      ${line}`) : () => {};
   const ctx = {
     scenario,
     owner,
@@ -130,11 +128,7 @@ export async function runScenario(scenario, options = {}) {
     if (assertion.judge) {
       const { value: rubric, unresolved } = interpolate(assertion.judge, ctx);
       if (unresolved.length)
-        return record(
-          index,
-          'blocked',
-          `${name} — unresolved ${unresolved.join(', ')}`,
-        );
+        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
       if (!turn)
         return record(index, 'fail', `${name} — no assistant turn to judge`);
       const verdict = await judge(rubric, {
@@ -204,11 +198,7 @@ export async function runScenario(scenario, options = {}) {
         ctx,
       );
       if (unresolved.length)
-        return record(
-          index,
-          'blocked',
-          `${name} — unresolved ${unresolved.join(', ')}`,
-        );
+        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
       return record(
         index,
         reply.includes(needle) ? 'pass' : 'fail',
@@ -283,11 +273,7 @@ export async function runScenario(scenario, options = {}) {
         ctx,
       );
       if (unresolved.length)
-        return record(
-          index,
-          'blocked',
-          `${name} — unresolved ${unresolved.join(', ')}`,
-        );
+        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
       if (!matches(JSON.stringify(widget.snapshot?.data ?? {}), needle))
         failures.push(
           `snapshot lacks ${needle instanceof RegExp ? needle : `"${needle}"`}`,
@@ -299,11 +285,7 @@ export async function runScenario(scenario, options = {}) {
         ctx,
       );
       if (unresolved.length)
-        return record(
-          index,
-          'blocked',
-          `${name} — unresolved ${unresolved.join(', ')}`,
-        );
+        return record(index, 'blocked', `${name} — unresolved ${unresolved.join(', ')}`);
       if (matches(JSON.stringify(widget.snapshot?.data ?? {}), needle))
         failures.push(
           `snapshot contains ${needle instanceof RegExp ? needle : `"${needle}"`}`,
@@ -376,7 +358,9 @@ export async function runScenario(scenario, options = {}) {
     return record(index, 'fail', `${name} — unknown assertion shape`);
   };
 
-  console.log(`\n=== ${scenario.id} — ${scenario.title} (owner ${owner}) ===`);
+  console.log(
+    `\n=== ${scenario.id} — ${scenario.title} (owner ${owner}) ===`,
+  );
 
   let session = null;
   for (const [index, step] of scenario.steps.entries()) {
@@ -456,7 +440,11 @@ export async function runScenario(scenario, options = {}) {
         }
         const { value: instructions } = interpolate(String(step.human), ctx);
         const answer = await ctx.askHuman(instructions);
-        record(index, answer === 'done' ? 'pass' : answer, `human — ${answer}`);
+        record(
+          index,
+          answer === 'done' ? 'pass' : answer,
+          `human — ${answer}`,
+        );
       } else if (step.run) {
         await new Promise((resolve, reject) => {
           const child = spawn(step.run, {

@@ -77,11 +77,13 @@
   color: white;
 }
 .homeboard-brand > div {
-  font: 700 27px/1.1 var(--font-display-local);
+  font:
+    700 27px/1.1 var(--font-display-local);
 }
 .homeboard-brand small {
   display: block;
-  font: 13px/1.5 var(--font-sans-local);
+  font:
+    13px/1.5 var(--font-sans-local);
   color: #5d6b7a;
   margin-top: 2px;
 }
@@ -286,19 +288,22 @@
   min-width: 0;
 }
 .widget-label {
-  font: 700 0.75rem/1.5 var(--font-sans-local);
+  font:
+    700 0.75rem/1.5 var(--font-sans-local);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   opacity: 0.8;
 }
 .hb-widget h2 {
-  font: 700 1.75rem/1.05 var(--font-display-local);
+  font:
+    700 1.75rem/1.05 var(--font-display-local);
   letter-spacing: -0.025em;
   margin: 7px 0 0;
   overflow-wrap: anywhere;
 }
 .hb-widget h3 {
-  font: 700 1.35rem/1.2 var(--font-display-local);
+  font:
+    700 1.35rem/1.2 var(--font-display-local);
   margin: 12px 0;
 }
 .widget-menu {
@@ -512,7 +517,8 @@
 }
 .widget-metric strong {
   display: block;
-  font: 700 2.5rem/1.1 var(--font-display-local);
+  font:
+    700 2.5rem/1.1 var(--font-display-local);
   margin: 6px 0;
 }
 .widget-metric p {
@@ -672,7 +678,8 @@
 .calendar-day {
   margin: 10px 0 3px !important;
   color: inherit;
-  font: 700 14px/1.4 var(--font-sans-local) !important;
+  font:
+    700 14px/1.4 var(--font-sans-local) !important;
   opacity: 0.72;
 }
 .calendar-event {
@@ -770,7 +777,8 @@
   color: #0430eb;
 }
 .weather-now > strong {
-  font: 700 2.5rem/1 var(--font-display-local);
+  font:
+    700 2.5rem/1 var(--font-display-local);
   letter-spacing: -0.02em;
 }
 .weather-now > div {
@@ -928,7 +936,8 @@
   padding: 6px 10px;
 }
 .recipe-instruction {
-  font: 500 1.4rem/1.4 var(--font-display-local);
+  font:
+    500 1.4rem/1.4 var(--font-display-local);
   margin: 10px 0 20px;
   white-space: pre-line;
 }
@@ -1139,7 +1148,8 @@
 }
 .board-loading h1,
 .empty-board h1 {
-  font: 500 2rem var(--font-display-local);
+  font:
+    500 2rem var(--font-display-local);
 }
 .board-loading p {
   max-width: 600px;
@@ -1156,7 +1166,7 @@
 .request-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(9, 14, 23, 0.55);
+  background: rgba(9,14,23,.55);
   z-index: 100;
   display: grid;
   place-items: center;
@@ -1180,7 +1190,8 @@
   align-items: center;
 }
 .request-dialog h2 {
-  font: 500 2rem var(--font-display-local);
+  font:
+    500 2rem var(--font-display-local);
 }
 .request-dialog > div > button {
   border: 0;
@@ -1231,7 +1242,8 @@
   border-radius: 24px;
 }
 .recipe-result h2 {
-  font: 700 1.75rem/1.15 var(--font-display-local);
+  font:
+    700 1.75rem/1.15 var(--font-display-local);
 }
 .recipe-result p {
   font-weight: 400;
@@ -1370,7 +1382,7 @@
   display: none;
 }
 .request-overlay::backdrop {
-  background: rgba(9, 14, 23, 0.55);
+  background: rgba(9,14,23,.55);
   backdrop-filter: blur(5px);
 }
 .is-small {
@@ -1473,7 +1485,8 @@
   padding: 8px 4px 0;
 }
 .recent-artifacts h3 {
-  font: 700 0.9rem/1.4 var(--font-display-local);
+  font:
+    700 0.9rem/1.4 var(--font-display-local);
   opacity: 0.75;
   margin: 0 0 8px;
 }
