@@ -40,6 +40,9 @@ Fill in `.env.local`:
 | `OPENAI_API_KEY` | Server-side model calls for widget generation |
 | `CALENDAR_CREDENTIAL_KEY` | 32 random bytes, base64 — encrypts iCloud credentials at rest (`openssl rand -base64 32`) |
 | `HOMEBOARD_WIDGET_MODEL` | Optional model override |
+| `HOMEBOARD_IMAGE_MODEL` | Optional image model override (default `gpt-image-2`) for artifact illustrations |
+| `HOMEBOARD_IMAGE_QUALITY` | Optional image quality override (default `medium`) |
+| `HOMEBOARD_IMAGE_LIMIT` | Max generated illustrations per visual answer (default 2) |
 
 Run the dev server:
 
@@ -57,7 +60,7 @@ The local D1 database is created by miniflare under `.wrangler/state/v3/d1/` on 
 sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite < drizzle/0003_happy_thunderbolts.sql
 ```
 
-Apply files in order; skip any already applied.
+Apply files in order; skip any already applied. `drizzle/0007_grey_betty_brant.sql` adds `artifact_images`, which stores the generated illustrations used by visual answers (served from `GET /api/artifacts/images/<id>`).
 
 ## Scripts
 

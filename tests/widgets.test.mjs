@@ -5,6 +5,10 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 await mkdir('.wrangler/widget-tests', { recursive: true });
+await writeFile(
+  '.wrangler/widget-tests/runtime.mjs',
+  await readFile('tests/widget-test-runtime.mjs', 'utf8'),
+);
 for (const file of ['model', 'generation']) {
   const source = await readFile(`app/lib/widgets/${file}.ts`, 'utf8');
   const compiled = ts
@@ -14,8 +18,21 @@ for (const file of ['model', 'generation']) {
         module: ts.ModuleKind.ESNext,
       },
     })
-    .outputText.replace("'./model'", "'./model.mjs'");
+    .outputText.replace("'./model'", "'./model.mjs'")
+    .replace("'../images'", "'./images.mjs'");
   await writeFile(`.wrangler/widget-tests/${file}.mjs`, compiled);
+}
+{
+  const source = await readFile('app/lib/images.ts', 'utf8');
+  const compiled = ts
+    .transpileModule(source, {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext,
+      },
+    })
+    .outputText.replace("'cloudflare:workers'", "'./runtime.mjs'");
+  await writeFile('.wrangler/widget-tests/images.mjs', compiled);
 }
 const {
   packWidgets,
@@ -28,7 +45,7 @@ const {
 } = await import(
   pathToFileURL(`${process.cwd()}/.wrangler/widget-tests/model.mjs`)
 );
-const { validateGenerated, validatePage } = await import(
+const { validateGenerated, validatePage, resolvePageImages } = await import(
   pathToFileURL(`${process.cwd()}/.wrangler/widget-tests/generation.mjs`)
 );
 const widget = (id, size = 'standard', layouts = {}) => ({
@@ -147,8 +164,10 @@ await test('pages allow https images but reject other external resources', () =>
     html: '<figure><img src="https://upload.wikimedia.org/x.jpg" alt="seed" width="400" height="300"><figcaption>Seed</figcaption></figure>',
     css: 'figure{margin:0}',
     js: '',
+    images: [],
   });
   const output = validatePage(page());
+  assert.deepEqual(output.images, []);
   assert.equal(output.definition.kind, 'page');
   assert.deepEqual(output.definition.nodes, [
     { id: 'summary', type: 'text', children: [] },
@@ -168,6 +187,73 @@ await test('pages allow https images but reject other external resources', () =>
   assert.throws(() =>
     validatePage({ ...page(), css: 'body{background:url(https://x)}' }),
   );
+});
+await test('pages accept generated illustrations within the limit', () => {
+  const page = (html, images = []) => ({
+    title: 'How a plant grows',
+    summary: 'Stages of growth.',
+    tone: 'emerald',
+    timeSensitive: false,
+    html,
+    css: '',
+    js: '',
+    images,
+  });
+  const hero = {
+    id: 'hero',
+    prompt: 'A seed germinating',
+    shape: 'landscape',
+  };
+  const ok = validatePage(
+    page(
+      '<figure><img src="homeboard-image:hero" alt="seed"><figcaption>Seed</figcaption></figure>',
+      [hero],
+    ),
+  );
+  assert.deepEqual(ok.images, [hero]);
+  // References without a matching images entry are rejected.
+  assert.throws(() =>
+    validatePage(page('<img src="homeboard-image:missing">', [hero])),
+  );
+  // Kept image URLs from a previous version stay valid.
+  validatePage(
+    page(
+      '<img src="/api/artifacts/images/01234567-89ab-cdef-0123-456789abcdef">',
+    ),
+  );
+  // Extras beyond the cap are truncated, not fatal.
+  const many = validatePage(
+    page('<img src="homeboard-image:a">', [
+      { id: 'a', prompt: 'one', shape: 'square' },
+      { id: 'b', prompt: 'two', shape: 'square' },
+      { id: 'c', prompt: 'three', shape: 'square' },
+    ]),
+  );
+  assert.deepEqual(
+    many.images.map((i) => i.id),
+    ['a', 'b'],
+  );
+});
+await test('resolvePageImages swaps placeholders and drops failures', async () => {
+  const images = [
+    { id: 'ok', prompt: 'works', shape: 'square' },
+    { id: 'bad', prompt: 'fails', shape: 'square' },
+    { id: 'bare', prompt: 'fails bare', shape: 'square' },
+  ];
+  const html =
+    '<figure><img src="homeboard-image:ok" alt="a"><figcaption>A</figcaption></figure>' +
+    '<figure><img src="homeboard-image:bad" alt="b"><figcaption>B</figcaption></figure>' +
+    '<div><img src="homeboard-image:bare" alt="c"></div>' +
+    '<figure><img src="homeboard-image:unknown" alt="d"></figure>';
+  const out = await resolvePageImages(html, images, async (image) =>
+    image.id === 'ok' ? '/api/artifacts/images/resolved' : null,
+  );
+  assert.match(out, /src="\/api\/artifacts\/images\/resolved"/);
+  assert.match(out, /<figcaption>A<\/figcaption>/);
+  assert.ok(!out.includes('homeboard-image:'));
+  assert.ok(!out.includes('figcaption>B'));
+  assert.ok(!out.includes('alt="c"'));
+  assert.ok(!out.includes('alt="d"'));
 });
 test('freshness and source URL boundaries are explicit', () => {
   assert.equal(isExpired({ expiresAt: '2020-01-01T00:00:00Z' }), true);

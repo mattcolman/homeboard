@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { ARTIFACT_TTL_MS, validateState, type Artifact } from './widgets/model';
 import { generatePage, generateWidget } from './widgets/generation';
+import { imageIdsIn, purgeExpiredImages, touchImages } from './images';
 import { createWidget, getWidget, WidgetError } from './widgets/store';
 
 const db = () => (env as unknown as { DB: D1Database }).DB;
@@ -28,12 +29,13 @@ function fromRow(r: Row): Artifact {
     expiresAt: r.expires_at,
   };
 }
-type Generate = typeof generateWidget;
+type Generate = typeof generatePage;
 async function purgeExpired(owner: string) {
   await db()
     .prepare('DELETE FROM artifacts WHERE owner_id=? AND expires_at<=?')
     .bind(owner, new Date().toISOString())
     .run();
+  await purgeExpiredImages(owner);
 }
 export async function listArtifacts(owner: string): Promise<Artifact[]> {
   await purgeExpired(owner);
@@ -64,7 +66,7 @@ export async function createArtifact(
 ): Promise<Artifact> {
   if (!query.trim() || query.length > 1200)
     throw new WidgetError('Ask a short, specific question.');
-  const generated = await generate(query);
+  const generated = await generate(query, undefined, { owner });
   const id = crypto.randomUUID(),
     now = new Date(),
     expires = new Date(now.getTime() + ARTIFACT_TTL_MS).toISOString();
@@ -97,11 +99,16 @@ export async function refineArtifact(
   instruction = instruction.trim();
   if (!instruction || instruction.length > 800)
     throw new WidgetError('Describe how to change this visual.');
-  const generated = await generate(a.query, {
-    definition: a.definition,
-    snapshot: a.snapshot,
-    instruction,
-  });
+  const generated = await generate(
+    a.query,
+    {
+      definition: a.definition,
+      snapshot: a.snapshot,
+      instruction,
+    },
+    { owner },
+  );
+  const expires = new Date(Date.now() + ARTIFACT_TTL_MS).toISOString();
   await db()
     .prepare(
       'UPDATE artifacts SET title=?,definition_json=?,snapshot_json=?,expires_at=? WHERE owner_id=? AND id=?',
@@ -110,11 +117,17 @@ export async function refineArtifact(
       generated.title,
       JSON.stringify(generated.definition),
       JSON.stringify(generated.snapshot),
-      new Date(Date.now() + ARTIFACT_TTL_MS).toISOString(),
+      expires,
       owner,
       id,
     )
     .run();
+  // Kept-over generated illustrations inherit the new artifact expiry.
+  await touchImages(
+    owner,
+    imageIdsIn(generated.definition.module?.html ?? ''),
+    expires,
+  );
   return getArtifact(owner, id);
 }
 export async function setArtifactState(

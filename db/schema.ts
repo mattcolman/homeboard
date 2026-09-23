@@ -1,4 +1,10 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  blob,
+  index,
+  integer,
+  sqliteTable,
+  text,
+} from 'drizzle-orm/sqlite-core';
 
 export const recipes = sqliteTable('recipes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -100,6 +106,24 @@ export const artifacts = sqliteTable(
   },
   (table) => [
     index('idx_artifacts_owner_created').on(table.ownerId, table.createdAt),
+  ],
+);
+
+export const artifactImages = sqliteTable(
+  'artifact_images',
+  {
+    id: text('id').primaryKey(),
+    ownerId: text('owner_id').notNull(),
+    mime: text('mime').notNull(),
+    bytes: blob('bytes', { mode: 'buffer' }).notNull(),
+    createdAt: text('created_at').notNull(),
+    expiresAt: text('expires_at').notNull(),
+  },
+  (table) => [
+    index('idx_artifact_images_owner_expiry').on(
+      table.ownerId,
+      table.expiresAt,
+    ),
   ],
 );
 
