@@ -12,7 +12,7 @@
   margin-bottom: 8px;
   font-size: 0.875rem;
   font-weight: 700;
-  color: #5d6b7a;
+  color: var(--muted-foreground);
 }
 .family-field input[type='text'],
 .family-field input:not([type]) {
@@ -22,7 +22,7 @@
   border-radius: 12px;
   padding: 8px 12px;
   font: inherit;
-  background: #fff;
+  background: var(--card);
   color: var(--foreground);
 }
 .emoji-grid {
@@ -35,7 +35,7 @@
   height: 44px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--card);
   font-size: 20px;
   display: grid;
   place-items: center;
@@ -43,7 +43,7 @@
 }
 .emoji-grid button.selected {
   border-color: var(--accent);
-  outline: 2px solid rgba(4, 48, 235, 0.25);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .color-grid {
   display: flex;
@@ -65,7 +65,7 @@
   height: 18px;
 }
 .color-grid button.selected {
-  outline: 3px solid rgba(14, 21, 38, 0.35);
+  outline: 3px solid color-mix(in srgb, var(--foreground) 40%, transparent);
   outline-offset: 2px;
 }
 .member-list {
@@ -78,7 +78,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid #0e152618;
+  border-bottom: 1px solid var(--hairline);
 }
 .member-row:last-child {
   border-bottom: 0;
@@ -103,7 +103,7 @@
   font-size: 1.05rem;
 }
 .member-info small {
-  color: #5d6b7a;
+  color: var(--muted-foreground);
   font-size: 0.8125rem;
 }
 .member-edit {
@@ -111,7 +111,7 @@
   padding: 6px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--card);
   font-weight: 700;
   font-size: 0.875rem;
   cursor: pointer;
@@ -124,7 +124,7 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #b03828;
+  color: var(--danger-strong);
   cursor: pointer;
 }
 .member-remove svg {
