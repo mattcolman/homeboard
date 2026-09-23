@@ -368,7 +368,7 @@ function RecipeBody({
               <ol className={`recipe-steps${large ? ' large' : ''}`}>
                 {recipe.steps.map((step, i) => (
                   <li
-                    key={stepId(step)}
+                    key={i}
                     ref={i === index ? currentStepRef : undefined}
                     className={
                       i === index ? 'is-current' : i < index ? 'is-done' : ''
