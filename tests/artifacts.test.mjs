@@ -130,6 +130,75 @@ await test('refine updates the visual and keeps state', async () => {
   );
 });
 
+await test('page artifacts round-trip, refine and promote via re-generation', async () => {
+  const page = () => ({
+    title: 'How a plant grows',
+    definition: {
+      schema: 1,
+      theme: 1,
+      kind: 'page',
+      tone: 'emerald',
+      nodes: [{ id: 'summary', type: 'text', children: [] }],
+      summary: 'Stages of growth.',
+      module: {
+        html: '<figure><img src="https://upload.wikimedia.org/x.jpg" alt="seed"><figcaption>Seed</figcaption></figure>',
+        css: 'figure{margin:0}',
+        js: '',
+      },
+    },
+    snapshot: {
+      data: {
+        content: {
+          summary: {
+            text: 'Stages of growth.',
+            label: '',
+            value: '',
+            items: [],
+          },
+        },
+      },
+      source: 'AI explanation',
+      sources: [],
+      fetchedAt: new Date().toISOString(),
+      staleAt: null,
+      expiresAt: null,
+    },
+  });
+  const a = await createArtifact(owner, 'Explain how a plant grows', () =>
+    Promise.resolve(page()),
+  );
+  const round = await getArtifact(owner, a.id);
+  assert.equal(round.definition.kind, 'page');
+  assert.match(round.definition.module.html, /upload\.wikimedia\.org/);
+  let refined = 0;
+  const next = await refineArtifact(owner, a.id, 'More pictures', () => {
+    ++refined;
+    const result = page();
+    result.title = 'Refined plant page';
+    return Promise.resolve(result);
+  });
+  assert.equal(refined, 1);
+  assert.equal(next.title, 'Refined plant page');
+  assert.equal(next.definition.kind, 'page');
+  let widgetCalls = 0;
+  const { widget } = await promoteArtifact(owner, a.id, () => {
+    ++widgetCalls;
+    return Promise.resolve(generated('Plant growth widget'));
+  });
+  assert.equal(widgetCalls, 1);
+  assert.equal(widget.definition.kind, 'composition');
+  assert.equal(widget.pinned, true);
+  assert.equal(widget.query, a.query);
+  assert.deepEqual(widget.state, {});
+  assert.equal((await getArtifact(owner, a.id)).promotedWidgetId, widget.id);
+  const again = await promoteArtifact(owner, a.id, () => {
+    ++widgetCalls;
+    return Promise.resolve(generated('Unused'));
+  });
+  assert.equal(widgetCalls, 1);
+  assert.equal(again.widget.id, widget.id);
+});
+
 await test('route: list, keep, dismiss and origin checks', async () => {
   const call = async (input, expected = 200, extra = {}) => {
     const request = new Request(

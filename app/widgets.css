@@ -1193,6 +1193,9 @@
 .custom-fallback {
   padding: 4px 0;
 }
+.artifact-view .custom-widget iframe[data-kind='page'] {
+  min-height: 70vh;
+}
 .custom-widget iframe:not([data-ready='yes']) {
   position: absolute;
   opacity: 0;

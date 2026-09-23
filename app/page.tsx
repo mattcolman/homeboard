@@ -373,14 +373,21 @@ export default function Homeboard() {
     }
   }
   async function keepArtifact(a: Artifact) {
-    const result = await artifactApi({ action: 'keep', id: a.id });
-    ++mutationSeq.current;
-    replaceWidget(result.widget!);
-    showArtifact(null);
-    showFocus(result.widget!.id);
-    void loadRecent();
-    setMessage('Kept on your board.');
-    return result.widget!;
+    // Keeping a page re-generates a widget server-side, which can take a few
+    // seconds — hold the busy flag so the action can't fire twice.
+    setGenerating(true);
+    try {
+      const result = await artifactApi({ action: 'keep', id: a.id });
+      ++mutationSeq.current;
+      replaceWidget(result.widget!);
+      showArtifact(null);
+      showFocus(result.widget!.id);
+      void loadRecent();
+      setMessage('Kept on your board.');
+      return result.widget!;
+    } finally {
+      setGenerating(false);
+    }
   }
   async function refineArtifactView(a: Artifact, instruction: string) {
     setGenerating(true);

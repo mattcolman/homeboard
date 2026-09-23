@@ -74,7 +74,8 @@ export function ArtifactView({
         <div className="widget-body">
           <div>
             <WidgetBoundary key={w.definitionId}>
-              {w.definition.kind === 'module' ? (
+              {w.definition.kind === 'module' ||
+              w.definition.kind === 'page' ? (
                 <CustomWidget
                   widget={w}
                   active={!offline}

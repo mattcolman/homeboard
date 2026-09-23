@@ -68,6 +68,7 @@ Steps run in order:
 { say: 'Hey Homeboard, what’s my golf handicap?' }   // text turn into the session
 { expect: [ /* assertions on the last reply */ ] }
 { expect_state: [ /* assertions on the board */ ] }
+{ expect_artifact: [ /* assertions on the last shown visual */ ] }
 { action: 'golf-sync' }                               // named action, may set facts
 { human: 'Log in to golf.com.au in the open window' } // operator handoff
 { run: 'shell command' }                              // escape hatch
@@ -91,6 +92,16 @@ other keys live in `capabilities.mjs`).
 
 - `{ title|kind|id: '…', exists: bool, binding_source: 'golf',
    snapshot_includes: 'text'|/re/, snapshot_not_includes: 'text'|/re/ }`
+
+### Visual assertions (`expect_artifact`)
+
+Runs against the last artifact shown via `show_visual` (`fail` if none is on
+screen). Assertions on the artifact's `definition.module.html`:
+
+- `{ kind: 'page' }` — the artifact's `definition.kind`
+- `{ min_visuals: 3 }` — count of `<img>` + `<svg>` tags
+- `{ max_words: 120 }` — visible words after stripping tags
+- `{ judge: '<rubric>' }` — LLM judge with the page HTML as context
 
 `${facts.x}` and `${env.KEY}` interpolate into strings (facts are set by
 actions, e.g. the real handicap captured by `golf-sync`).

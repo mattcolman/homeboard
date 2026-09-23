@@ -563,7 +563,8 @@ function CalendarBody({
     tomorrow = dayKey(new Date(referenceTime + 86_400_000).toISOString());
   const byCalendar = new Map<string, FamilyMember>();
   for (const member of members)
-    for (const calendarId of member.calendarIds) byCalendar.set(calendarId, member);
+    for (const calendarId of member.calendarIds)
+      byCalendar.set(calendarId, member);
   let previousDay = '';
   return (
     <div className="calendar-widget">
@@ -647,6 +648,7 @@ const KIND_BADGE: Record<
   chores: { icon: ListTodo, color: '#b07417' },
   composition: { icon: Sparkles, color: '#6d4be0' },
   module: { icon: Puzzle, color: '#6d4be0' },
+  page: { icon: Puzzle, color: '#6d4be0' },
 };
 export function badgeFor(widget: Widget) {
   if (widget.binding.source === 'golf') return { icon: Flag, color: '#0f7a50' };
@@ -986,7 +988,7 @@ function WidgetContent({
       }}
     />
   );
-  if (widget.definition.kind === 'module')
+  if (widget.definition.kind === 'module' || widget.definition.kind === 'page')
     return (
       <CustomWidget
         widget={widget}
