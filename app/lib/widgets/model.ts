@@ -416,3 +416,10 @@ export function isStale(snapshot: Snapshot, now = Date.now()) {
 export function hasOwn(obj: object, key: string) {
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
+
+/** `--muted` is a surface colour; as a text colour it vanishes on the background. */
+export const readableCss = (css: string) =>
+  css.replace(
+    /(^|[^-\w])color\s*:\s*var\(\s*--muted\s*\)/gi,
+    '$1color:var(--muted-foreground)',
+  );
