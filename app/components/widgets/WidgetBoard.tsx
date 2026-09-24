@@ -47,10 +47,13 @@ import {
   columnsForWidth,
   isExpired,
   packWidgets,
+  PICKABLE_TONES,
   relativeTime,
   safeUrl,
   stepId,
   supportsSmall,
+  TONE_LABELS,
+  widgetTone,
   type Columns,
   type FamilyMember,
   type LayoutNode,
@@ -1049,9 +1052,11 @@ function WidgetShell({
   }, [widget, focus]);
   const source = widget.snapshot.source;
   const position = widget.layouts[columns];
+  const tone = widgetTone(widget);
+  /* oxlint-disable jsx-a11y/prefer-tag-over-role -- the swatches fire actions, they are not form inputs */
   return (
     <article
-      className={`hb-widget tone-${widget.definition.tone} ${widget.definition.tone !== 'cream' ? 'is-colored' : ''} ${focus ? 'is-focused' : widget.size === 'small' ? 'is-small' : ''} ${busy ? 'is-saving' : ''}`}
+      className={`hb-widget tone-${tone} ${tone !== 'cream' ? 'is-colored' : ''} ${focus ? 'is-focused' : widget.size === 'small' ? 'is-small' : ''} ${busy ? 'is-saving' : ''}`}
       aria-label={widget.title}
       aria-busy={busy}
     >
@@ -1119,6 +1124,34 @@ function WidgetShell({
                 <option value="focus">Large</option>
               </select>
             </label>
+            <div className="widget-tone" role="radiogroup" aria-label="Colour">
+              <span>Colour</span>
+              <div>
+                <button
+                  type="button"
+                  className={`widget-tone-swatch tone-auto ${widget.binding.tone ? '' : 'is-selected'}`}
+                  role="radio"
+                  aria-checked={!widget.binding.tone}
+                  aria-label="Automatic"
+                  title="Automatic"
+                  disabled={offline || busy}
+                  onClick={() => void action(widget, 'tone', { tone: null })}
+                />
+                {PICKABLE_TONES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={widget.binding.tone === t}
+                    aria-label={TONE_LABELS[t]}
+                    title={TONE_LABELS[t]}
+                    className={`widget-tone-swatch tone-${t} ${widget.binding.tone === t ? 'is-selected' : ''}`}
+                    disabled={offline || busy}
+                    onClick={() => void action(widget, 'tone', { tone: t })}
+                  />
+                ))}
+              </div>
+            </div>
             {position && (
               <div className="widget-position">
                 <span>Move</span>
@@ -1243,6 +1276,7 @@ function WidgetShell({
       )}
     </article>
   );
+  /* oxlint-enable jsx-a11y/prefer-tag-over-role */
 }
 
 export function WidgetBoard({

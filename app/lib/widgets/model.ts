@@ -96,6 +96,21 @@ export const TONES = [
   'forest',
 ] as const;
 export type Tone = (typeof TONES)[number];
+export const TONE_LABELS: Record<Tone, string> = {
+  indigo: 'Indigo',
+  sky: 'Sky',
+  green: 'Green',
+  terracotta: 'Terracotta',
+  emerald: 'Emerald',
+  amber: 'Amber',
+  violet: 'Violet',
+  cream: 'Light',
+  forest: 'Forest',
+};
+// 'forest' is a legacy alias of emerald, so it is never offered as a pick.
+export const PICKABLE_TONES: readonly Tone[] = TONES.filter(
+  (t) => t !== 'forest',
+);
 export type Widget = {
   id: string;
   definitionId: string;
@@ -111,7 +126,7 @@ export type Widget = {
   order: number;
   layouts: Layouts;
   query: string;
-  binding: { type: string; recipeUrl?: string; source?: string };
+  binding: { type: string; recipeUrl?: string; source?: string; tone?: Tone };
   offlineAllowed: boolean;
   updatedAt: string;
 };
@@ -356,6 +371,12 @@ export function relativeTime(iso: string, now = Date.now()): string {
     day: 'numeric',
     month: 'short',
   });
+}
+/** The user's persisted override wins over the definition's tone. */
+export function widgetTone(
+  widget: Pick<Widget, 'binding' | 'definition'>,
+): Tone {
+  return widget.binding.tone ?? widget.definition.tone;
 }
 export function isExpired(snapshot: Snapshot, now = Date.now()) {
   return !!snapshot.expiresAt && new Date(snapshot.expiresAt).getTime() <= now;
