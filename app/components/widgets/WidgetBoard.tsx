@@ -1062,7 +1062,9 @@ function WidgetShell({
     >
       <span
         className="widget-icon-badge"
-        style={{ color: badgeFor(widget).color }}
+        style={
+          { '--kind-color': badgeFor(widget).color } as React.CSSProperties
+        }
         aria-hidden
       >
         {(() => {

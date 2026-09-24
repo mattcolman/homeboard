@@ -158,32 +158,40 @@
 }
 /* Fixed widget palette — Apple-style saturated gradients with white text.
    .tone-cream stays the light option; every other tone is coloured. */
+/* --tone-strong feeds the icon badge glyph so it tracks the card colour. */
 .hb-widget.tone-indigo {
+  --tone-strong: #2b3a9e;
   border: 0;
   background: linear-gradient(155deg, #4f6df5 0%, #2b3a9e 100%);
 }
 .hb-widget.tone-sky {
+  --tone-strong: #0369c9;
   border: 0;
   background: linear-gradient(155deg, #38a4f8 0%, #0369c9 100%);
 }
 .hb-widget.tone-green {
+  --tone-strong: #0d7a45;
   border: 0;
   background: linear-gradient(155deg, #34b172 0%, #0d7a45 100%);
 }
 .hb-widget.tone-terracotta {
+  --tone-strong: #c24e17;
   border: 0;
   background: linear-gradient(155deg, #f08a4b 0%, #c24e17 100%);
 }
 .hb-widget.tone-emerald,
 .hb-widget.tone-forest {
+  --tone-strong: #0b5f43;
   border: 0;
   background: linear-gradient(155deg, #2fae7d 0%, #0b5f43 100%);
 }
 .hb-widget.tone-violet {
+  --tone-strong: #5b3df0;
   border: 0;
   background: linear-gradient(155deg, #9d86f2 0%, #5b3df0 100%);
 }
 .hb-widget.tone-amber {
+  --tone-strong: #b96f12;
   border: 0;
   background: linear-gradient(155deg, #f2b04a 0%, #b96f12 100%);
 }
@@ -279,6 +287,7 @@
   height: 56px;
   border-radius: 50%;
   place-items: center;
+  color: var(--tone-strong, var(--kind-color));
   background: var(--card);
   box-shadow:
     0 6px 18px rgba(0, 0, 0, 0.24),
