@@ -903,7 +903,6 @@ function StickyBody({
 }) {
   const note = widget.snapshot.data.note ?? '';
   const [draft, setDraft] = useState(note);
-  useEffect(() => setDraft(note), [note]);
   const save = () => {
     const text = draft.trim();
     if (!text || text === note) return;
@@ -982,7 +981,12 @@ function WidgetContent({
   if (widget.definition.kind === 'chores')
     return <ChoresBody {...{ widget, focus, action, members, offline }} />;
   if (widget.definition.kind === 'sticky')
-    return <StickyBody {...{ widget, focus, action, offline }} />;
+    return (
+      <StickyBody
+        key={widget.snapshot.data.note}
+        {...{ widget, focus, action, offline }}
+      />
+    );
   if (widget.definition.kind === 'library')
     return <LibraryBody {...{ widget, action, onRecipe, offline }} />;
   if (widget.definition.kind === 'shopping') {
