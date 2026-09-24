@@ -432,8 +432,10 @@ button.agenda-event:hover {
   background: color-mix(in srgb, var(--foreground) 35%, transparent);
 }
 .people-assign {
+  position: static;
   display: grid;
   gap: 6px;
+  margin: 0;
   width: min(420px, 100%);
   padding: 18px;
   border: 1px solid var(--border);
