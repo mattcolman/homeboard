@@ -6,9 +6,12 @@ const {
   listArtifacts,
   getArtifact,
   setArtifactState,
-  promoteArtifact,
+  keepArtifactAsWidget,
   refineArtifact,
 } = await import('../.wrangler/widget-api-tests/artifacts.mjs');
+const { createWidget } = await import(
+  '../.wrangler/widget-api-tests/store.mjs'
+);
 const { GET, POST } =
   await import('../.wrangler/widget-api-tests/artifactsroute.mjs');
 const { env } = await import('../.wrangler/widget-api-tests/runtime.mjs');
@@ -42,7 +45,7 @@ const generated = (title = 'Kilograms and grams') => ({
   },
 });
 
-await test('create, list, get and expiry', async () => {
+await test('create, list and get — artifacts never expire', async () => {
   const a = await createArtifact(owner, 'How many grams in a kilogram?', () =>
     Promise.resolve(generated()),
   );
@@ -54,7 +57,7 @@ await test('create, list, get and expiry', async () => {
   );
   const round = await getArtifact(owner, a.id);
   assert.equal(round.snapshot.data.content.a.value, '42');
-  // An expired row is purged by listing and 404s on read.
+  // A row carrying the legacy TTL stays listed and readable — no expiry.
   const stale = crypto.randomUUID(),
     past = new Date(Date.now() - 60e3).toISOString();
   await env.DB.prepare(
@@ -74,9 +77,9 @@ await test('create, list, get and expiry', async () => {
     .run();
   assert.deepEqual(
     (await listArtifacts(owner)).map((x) => x.id),
-    [a.id],
+    [a.id, stale],
   );
-  await assert.rejects(() => getArtifact(owner, stale), /no longer available/);
+  assert.equal((await getArtifact(owner, stale)).title, 'Old visual');
   await assert.rejects(
     () => createArtifact(owner, '   ', () => Promise.resolve(generated())),
     /short, specific/,
@@ -96,21 +99,28 @@ await test('state updates validate and persist', async () => {
   );
 });
 
-await test('promotion creates a pinned widget and is idempotent', async () => {
-  const a0 = await createArtifact(owner, 'Compare backyard trees', () =>
+await test('keep resolves a board widget and the artifact stays', async () => {
+  const a = await createArtifact(owner, 'Compare backyard trees', () =>
     Promise.resolve(generated('Backyard trees')),
   );
-  const a = await setArtifactState(owner, a0.id, { checked: ['a'] });
-  const { widget } = await promoteArtifact(owner, a.id);
-  assert.equal(widget.pinned, true);
-  assert.equal(widget.title, a.title);
-  assert.equal(widget.query, a.query);
-  assert.deepEqual(widget.state.checked, ['a']);
-  assert.deepEqual(widget.definition, a.definition);
-  assert.deepEqual(widget.snapshot, a.snapshot);
-  assert.ok(!(await listArtifacts(owner)).some((x) => x.id === a.id));
-  const again = await promoteArtifact(owner, a.id);
-  assert.equal(again.widget.id, widget.id);
+  const resolved = {
+    widget: { id: 'w-1', title: 'Backyard trees', pinned: true },
+    reused: false,
+  };
+  let calls = 0;
+  const { widget, artifact } = await keepArtifactAsWidget(
+    owner,
+    a.id,
+    () => {
+      ++calls;
+      return Promise.resolve(resolved);
+    },
+  );
+  assert.equal(calls, 1);
+  assert.equal(widget.id, 'w-1');
+  assert.equal(artifact.id, a.id);
+  // The visual is not promoted away — it stays in the gallery.
+  assert.ok((await listArtifacts(owner)).some((x) => x.id === a.id));
 });
 
 await test('refine updates the visual and keeps state', async () => {
@@ -130,7 +140,7 @@ await test('refine updates the visual and keeps state', async () => {
   );
 });
 
-await test('page artifacts round-trip, refine and promote via re-generation', async () => {
+await test('page artifacts round-trip and refine', async () => {
   const page = () => ({
     title: 'How a plant grows',
     definition: {
@@ -180,26 +190,9 @@ await test('page artifacts round-trip, refine and promote via re-generation', as
   assert.equal(refined, 1);
   assert.equal(next.title, 'Refined plant page');
   assert.equal(next.definition.kind, 'page');
-  let widgetCalls = 0;
-  const { widget } = await promoteArtifact(owner, a.id, () => {
-    ++widgetCalls;
-    return Promise.resolve(generated('Plant growth widget'));
-  });
-  assert.equal(widgetCalls, 1);
-  assert.equal(widget.definition.kind, 'composition');
-  assert.equal(widget.pinned, true);
-  assert.equal(widget.query, a.query);
-  assert.deepEqual(widget.state, {});
-  assert.equal((await getArtifact(owner, a.id)).promotedWidgetId, widget.id);
-  const again = await promoteArtifact(owner, a.id, () => {
-    ++widgetCalls;
-    return Promise.resolve(generated('Unused'));
-  });
-  assert.equal(widgetCalls, 1);
-  assert.equal(again.widget.id, widget.id);
 });
 
-await test('route: list, keep, dismiss and origin checks', async () => {
+await test('route: list, get, keep, dismiss and origin checks', async () => {
   const call = async (input, expected = 200, extra = {}) => {
     const request = new Request(
       `${base}/api/artifacts`,
@@ -220,10 +213,26 @@ await test('route: list, keep, dismiss and origin checks', async () => {
     Promise.resolve(generated('Birthday plan')),
   );
   const listed = await call();
-  assert.ok(listed.artifacts.some((x) => x.id === a.id));
+  const summary = listed.artifacts.find((x) => x.id === a.id);
+  assert.equal(summary.title, 'Birthday plan');
+  assert.equal(summary.query, 'Plan a birthday party');
+  const single = await GET(
+    new Request(`${base}/api/artifacts?id=${a.id}`, { headers }),
+  );
+  assert.equal(single.status, 200);
+  assert.equal((await single.json()).artifact.id, a.id);
+  // "Keep" reuses the same-query widget instead of generating a new one.
+  const keptWidget = await createWidget(owner, {
+    title: 'Birthday plan',
+    definition: generated('Birthday plan').definition,
+    snapshot: generated().snapshot,
+    query: 'Plan a birthday party',
+    pinned: true,
+  });
   const kept = await call({ action: 'keep', id: a.id });
-  assert.equal(kept.widget.pinned, true);
-  assert.equal(kept.artifact.promotedWidgetId, kept.widget.id);
+  assert.equal(kept.widget.id, keptWidget.id);
+  assert.equal(kept.artifact.id, a.id);
+  assert.ok((await call()).artifacts.some((x) => x.id === a.id));
   const b = await createArtifact(owner, 'Dinner ideas', () =>
     Promise.resolve(generated('Dinner ideas')),
   );

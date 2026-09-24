@@ -1287,33 +1287,348 @@
   background: none;
   border: 0;
 }
+/* Voice bar — a glowing orb mic that overhangs the pill, and a live waveform
+   stage. `--level` (0–1) is written by VoiceWave from real audio loudness. */
 .homeboard-voice {
+  --level: 0;
+  --orb-a: #5b8cff;
+  --orb-b: #7a5cff;
+  --orb-c: #b45cff;
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 1px 5px;
+  gap: 16px;
+  padding: 0 8px 0 0;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 99px;
-  width: 540px;
+  width: 600px;
   max-width: 100%;
-  min-height: 52px;
+  min-height: 64px;
+  margin-top: 10px;
   box-shadow: var(--shadow);
+  transition:
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
 }
-.homeboard-voice > span {
-  flex: 1;
-  font-size: 1rem;
-  font-weight: 700;
+.homeboard-voice.voice-listening {
+  --orb-a: #22d3ee;
+  --orb-b: #4f7cff;
+  --orb-c: #8b5cf6;
+}
+.homeboard-voice.voice-thinking {
+  --orb-a: #8b5cf6;
+  --orb-b: #c084fc;
+  --orb-c: #6d4dff;
+}
+.homeboard-voice.voice-speaking {
+  --orb-a: #fbbf24;
+  --orb-b: #fb7185;
+  --orb-c: #e879f9;
+}
+.homeboard-voice.is-live {
+  border-color: color-mix(in srgb, var(--orb-b) 45%, var(--border));
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--orb-b) 14%, transparent),
+    0 14px 44px color-mix(in srgb, var(--orb-b) 26%, transparent);
+}
+.mic-orb {
+  position: relative;
+  flex: none;
+  display: grid;
+  width: 84px;
+  height: 84px;
+  margin: -14px 0 -14px -12px;
+  place-items: center;
+}
+/* Slowly rotating colour halo behind the orb. */
+.mic-orb::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    var(--orb-a),
+    var(--orb-b),
+    var(--orb-c),
+    var(--orb-a)
+  );
+  filter: blur(9px);
+  opacity: 0.7;
+  animation:
+    orb-spin 7s linear infinite,
+    halo-breathe 5.3s ease-in-out infinite alternate;
+  transition: scale 0.35s ease;
+}
+.mic-orb:hover::before {
+  scale: 1.1;
+}
+.voice-connecting .mic-orb::before,
+.voice-thinking .mic-orb::before {
+  animation-duration: 1.4s, 5.3s;
+}
+@keyframes orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes halo-breathe {
+  0% {
+    opacity: 0.5;
+    filter: blur(8px);
+  }
+  45% {
+    opacity: 0.82;
+    filter: blur(11px);
+  }
+  100% {
+    opacity: 0.62;
+    filter: blur(13px);
+  }
+}
+/* A thin specular glint that travels round the rim, easing so it lingers
+   and then slides — like light catching the edge of a glass bead. */
+.mic-orb::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  z-index: 2;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(255, 255, 255, 0.95) 18deg,
+    transparent 48deg,
+    transparent 200deg,
+    rgba(255, 255, 255, 0.4) 214deg,
+    transparent 236deg
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2.5px),
+    #000 calc(100% - 1.5px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2.5px),
+    #000 calc(100% - 1.5px)
+  );
+  opacity: 0.85;
+  pointer-events: none;
+  animation: rim-glint 11s cubic-bezier(0.55, 0.1, 0.35, 0.95) infinite;
+}
+@keyframes rim-glint {
+  0% {
+    transform: rotate(-40deg);
+  }
+  40% {
+    transform: rotate(120deg);
+  }
+  55% {
+    transform: rotate(150deg);
+  }
+  100% {
+    transform: rotate(320deg);
+  }
+}
+.mic-ring {
+  position: absolute;
+  inset: 8px;
+  border: 2px solid var(--orb-b);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+/* Live: rings breathe with the speaker's actual loudness. */
+.is-live .mic-ring {
+  opacity: calc(0.15 + var(--level) * 1.6);
+  transform: scale(calc(1 + var(--level) * 1.3));
+  transition:
+    transform 0.09s linear,
+    opacity 0.09s linear;
+}
+.is-live .mic-ring + .mic-ring {
+  border-width: 1px;
+  opacity: calc(var(--level) * 1.1);
+  transform: scale(calc(1.05 + var(--level) * 2.2));
 }
 .homeboard-app .homeboard-mic {
-  width: 48px;
-  height: 48px;
-  min-height: 48px;
-  border: 0;
-  background: var(--primary);
-  color: var(--on-primary);
-  border-radius: 50%;
+  position: relative;
+  z-index: 1;
+  width: 68px;
+  height: 68px;
+  min-height: 68px;
   padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 32% 26%,
+      rgba(255, 255, 255, 0.55),
+      transparent 42%
+    ),
+    linear-gradient(140deg, var(--orb-a), var(--orb-b) 52%, var(--orb-c));
+  color: #fff;
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--orb-b) 50%, transparent),
+    inset 0 -8px 18px rgba(30, 10, 90, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transform: scale(calc(1 + var(--level) * 0.12));
+  transition:
+    transform 0.18s cubic-bezier(0.3, 1.4, 0.5, 1),
+    box-shadow 0.25s ease,
+    background 0.4s ease;
+}
+.homeboard-app .homeboard-mic svg {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 2px rgba(20, 0, 60, 0.35));
+}
+/* Caustics — two soft pools of light drifting inside the glass on unrelated
+   periods, so the pattern never visibly repeats. */
+.mic-light {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.mic-light i {
+  position: absolute;
+  width: 72%;
+  height: 72%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.5),
+    transparent 66%
+  );
+  filter: blur(5px);
+  animation: caustic-a 9.7s ease-in-out infinite alternate;
+}
+.mic-light i:last-child {
+  top: auto;
+  right: -22%;
+  bottom: -26%;
+  width: 80%;
+  height: 80%;
+  background: radial-gradient(
+    circle,
+    rgba(170, 235, 255, 0.45),
+    transparent 64%
+  );
+  animation: caustic-b 13.3s ease-in-out infinite alternate;
+}
+.mic-light i:first-child {
+  top: -14%;
+  left: -10%;
+}
+@keyframes caustic-a {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.8;
+  }
+  30% {
+    transform: translate(22%, 12%) scale(1.18);
+    opacity: 1;
+  }
+  65% {
+    transform: translate(6%, 30%) scale(0.86);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate(28%, 4%) scale(1.06);
+    opacity: 0.9;
+  }
+}
+@keyframes caustic-b {
+  0% {
+    transform: translate(0, 0) scale(0.95);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translate(-26%, -14%) scale(1.15);
+    opacity: 0.85;
+  }
+  75% {
+    transform: translate(-8%, -30%) scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-30%, -6%) scale(1.1);
+    opacity: 0.75;
+  }
+}
+/* An occasional diagonal glint across the glass — a long rest, then a quick
+   sweep, with an off-beat period against the other lights. */
+.homeboard-app .homeboard-mic::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 62%
+  );
+  transform: translateX(-130%);
+  pointer-events: none;
+  animation: glass-sweep 8.6s cubic-bezier(0.45, 0, 0.25, 1) 1.2s infinite;
+}
+@keyframes glass-sweep {
+  0%,
+  72% {
+    transform: translateX(-130%);
+  }
+  88%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+.homeboard-app .homeboard-mic:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.07);
+  box-shadow:
+    0 16px 38px color-mix(in srgb, var(--orb-b) 62%, transparent),
+    inset 0 -8px 18px rgba(30, 10, 90, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.homeboard-app .homeboard-mic:active:not(:disabled) {
+  transform: scale(0.93);
+  transition-duration: 0.08s;
+}
+.voice-stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  height: 44px;
+}
+.voice-stage > span {
+  flex: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.voice-idle .voice-stage > span,
+.voice-error .voice-stage > span {
+  flex: 1;
+}
+.voice-wave {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  animation: wave-in 0.4s ease both;
+}
+@keyframes wave-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.6);
+  }
 }
 .homeboard-app .homeboard-type {
   border: 0;
@@ -1321,12 +1636,20 @@
   min-width: 48px;
   padding: 8px;
 }
-.homeboard-voice.voice-listening {
-  outline: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+/* Dev-mode only — dashed so it never reads as product UI. */
+.homeboard-app .homeboard-simulate {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px dashed color-mix(in srgb, var(--warning) 60%, var(--border));
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--warning-strong);
+  font-size: 0.8125rem;
 }
-.homeboard-voice.voice-thinking .homeboard-mic,
-.homeboard-voice.voice-speaking .homeboard-mic {
-  background: var(--accent);
+.homeboard-app .homeboard-simulate svg {
+  width: 16px;
+  height: 16px;
 }
 .offline-badge {
   display: flex;
@@ -1533,6 +1856,21 @@
   }
   .homeboard-voice {
     min-height: 60px;
+    gap: 10px;
+  }
+  .mic-orb {
+    width: 76px;
+    height: 76px;
+    margin: -10px 0 -10px -8px;
+  }
+  .homeboard-app .homeboard-mic {
+    width: 60px;
+    height: 60px;
+    min-height: 60px;
+  }
+  .homeboard-app .homeboard-simulate {
+    padding: 6px 9px;
+    font-size: 0;
   }
   .board-message {
     font-size: 13px;
@@ -1540,6 +1878,25 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .spin {
+    animation: none;
+  }
+  .artifact-layer {
+    animation: none;
+    transition: none;
+  }
+  .mic-orb::before,
+  .mic-orb::after,
+  .mic-light i,
+  .homeboard-app .homeboard-mic::after,
+  .voice-wave {
+    animation: none !important;
+  }
+  .artifact-layer.is-ready .artifact-view,
+  .artifact-beam,
+  .artifact-spark,
+  .artifact-skeleton i,
+  .artifact-pulse,
+  .artifact-progress::after {
     animation: none;
   }
 }
@@ -1623,18 +1980,283 @@
   white-space: nowrap;
 }
 
-/* Artifact view — a generated visual answer filling the screen like a
-   focused widget, with its actions below rather than in a board menu. */
-.artifact-view {
+/* Artifact overlay — a small "agent at work" popup anchored above the mic
+   that morphs into a near-fullscreen modal when the visual is ready. */
+.artifact-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+}
+.artifact-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+/* Beat the generic `.homeboard-app button` card styling so the board shows
+   through, dimmed and softly blurred. */
+.homeboard-app .artifact-scrim {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--overlay) 70%, transparent);
+  backdrop-filter: blur(3px);
+  cursor: default;
+}
+.artifact-scrim.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.artifact-layer {
+  position: absolute;
+  left: 50%;
+  bottom: 112px;
+  width: min(430px, 92vw);
+  height: 238px;
+  transform: translateX(-50%);
+  overflow: hidden;
+  border: 1px solid rgba(122, 162, 255, 0.4);
+  border-radius: 22px;
+  background: linear-gradient(155deg, #101a36, #0a0f24 58%, #0d1432);
+  box-shadow:
+    0 0 0 1px rgba(122, 162, 255, 0.12),
+    0 18px 60px rgba(3, 8, 26, 0.65),
+    0 0 46px rgba(88, 130, 255, 0.2);
+  color: #e8edff;
+  pointer-events: auto;
+  animation: artifact-pop-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+  transition:
+    width 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
+    height 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
+    bottom 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
+    border-radius 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
+    border-color 0.55s ease,
+    background 0.4s ease;
+}
+@keyframes artifact-pop-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+/* Ready: a large floating sheet with the dimmed board visible around it. */
+.artifact-layer.is-ready {
+  bottom: clamp(16px, 3.5vh, 36px);
+  width: min(1240px, calc(100% - clamp(32px, 6vw, 96px)));
+  height: calc(100% - 2 * clamp(16px, 3.5vh, 36px));
+  border-color: color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 28px;
+  background: var(--surface);
+  backdrop-filter: blur(18px);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px color-mix(in srgb, var(--foreground) 5%, transparent);
+  color: var(--foreground);
+}
+/* Loading popup interior — dark "console" with a scanning light, pulsing
+   beacon and shimmering skeleton blocks. */
+.artifact-loading {
+  position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 10px;
+  height: 100%;
+  padding: 18px 20px 14px;
+  overflow: hidden;
+}
+.artifact-beam {
+  position: absolute;
+  top: 0;
+  left: -35%;
+  width: 55%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #8db8ff, transparent);
+  filter: drop-shadow(0 0 6px rgba(141, 184, 255, 0.9));
+  animation: artifact-scan 2.6s ease-in-out infinite;
+}
+@keyframes artifact-scan {
+  0%,
+  100% {
+    left: -35%;
+  }
+  50% {
+    left: 100%;
+  }
+}
+.artifact-loading header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+.artifact-spark {
+  width: 17px;
+  height: 17px;
+  color: #9ec2ff;
+  animation: artifact-twinkle 1.6s ease-in-out infinite;
+}
+@keyframes artifact-twinkle {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.88);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+.artifact-loading-query {
+  margin: 0;
+  overflow: hidden;
+  color: #9fb2e8;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.artifact-skeleton {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  grid-auto-rows: 30px;
+  gap: 9px;
+}
+.artifact-skeleton i {
+  border-radius: 9px;
+  background: linear-gradient(
+    100deg,
+    rgba(148, 178, 255, 0.1) 30%,
+    rgba(196, 218, 255, 0.32) 50%,
+    rgba(148, 178, 255, 0.1) 70%
+  );
+  background-size: 220% 100%;
+  animation: artifact-sheen 1.5s linear infinite;
+}
+.artifact-skeleton .sk-hero {
+  grid-row: span 2;
+}
+.artifact-skeleton .sk-short {
+  grid-column: 1 / -1;
+}
+@keyframes artifact-sheen {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}
+.artifact-loading footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8ea4de;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+.artifact-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7ab0ff;
+  animation: artifact-pulse 1.4s ease-out infinite;
+}
+@keyframes artifact-pulse {
+  from {
+    box-shadow: 0 0 0 0 rgba(122, 176, 255, 0.65);
+  }
+  to {
+    box-shadow: 0 0 0 9px rgba(122, 176, 255, 0);
+  }
+}
+/* Artifact view — a generated visual answer inside the expanded modal, with
+   its actions below rather than in a board menu. */
+.artifact-view {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 16px;
-  min-height: 100%;
+  min-height: 0;
   flex: 1;
+  padding: 30px 32px 24px;
+}
+.artifact-layer.is-ready .artifact-view {
+  animation: artifact-view-in 0.35s ease 0.18s backwards;
+}
+@keyframes artifact-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .artifact-view > .hb-widget {
   min-height: 0;
   min-width: 0;
+}
+/* The corner overhang collides with the close button inside artifact views. */
+.artifact-view .widget-icon-badge {
+  display: none;
+}
+.artifact-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.artifact-close svg {
+  width: 18px;
+  height: 18px;
+}
+.artifact-progress {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+}
+.artifact-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent-strong),
+    transparent
+  );
+  animation: artifact-progress 1.1s ease-in-out infinite;
+}
+@keyframes artifact-progress {
+  to {
+    left: 100%;
+  }
 }
 .artifact-actions {
   display: flex;
@@ -1683,40 +2305,6 @@
 }
 .homeboard-app .is-colored .freshness-refresh {
   color: #ffffff;
-}
-/* Recent answers strip below the board. */
-.recent-artifacts {
-  padding: 8px 4px 0;
-}
-.recent-artifacts h3 {
-  font: 700 0.9rem/1.4 var(--font-display-local);
-  opacity: 0.75;
-  margin: 0 0 8px;
-}
-.recent-artifacts > div {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-.recent-artifacts button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 2px;
-  min-height: 48px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  flex: none;
-}
-.recent-artifacts button span {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-.recent-artifacts button small {
-  font-size: 0.75rem;
-  opacity: 0.7;
 }
 .request-actions {
   display: flex;

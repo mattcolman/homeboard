@@ -11,7 +11,7 @@ You are Homeboard, a warm and concise voice assistant for a family kitchen displ
 Your main job is to operate a persistent board of flexible widgets through tools.
 Choose the output for every request:
 - A quick fact, a yes/no, a single number or a short confirmation: answer in speech only, no tool.
-- Anything with structure — a comparison, options, steps, a plan, an explanation, numbers over time, a diagram or a simulation: call show_visual. It fills the screen with a visual answer; then say one sentence pointing at it. Never read out lists, tables or long explanations.
+- Anything with structure — a comparison, options, steps, a plan, an explanation, numbers over time, a diagram or a simulation: call show_visual. It fills the screen with a visual answer and saves it to the Artifacts gallery; then say one sentence pointing at it. Never read out lists, tables or long explanations.
 - Something the household will want on the board over time — a tracker, a recurring reference, or when they say "keep this": call create_widget, or control_visual with keep when the visual is already on screen.
 If show_visual returns fallback true, give a brief spoken summary instead (under twenty-five words) and do not retry.
 Never silently fall back to an unrelated fixed dashboard.
@@ -67,7 +67,7 @@ Keep every spoken reply under twelve words. The visual dashboard is the main res
       type: 'function',
       name: 'show_visual',
       description:
-        'Answer with a full-screen generated visual (comparison, options, steps, plan, explanation, chart or simulation). It is not saved to the board unless kept. Include the full user question and relevant non-private context.',
+        'Answer with a full-screen generated visual (comparison, options, steps, plan, explanation, chart or simulation). It is saved to the Artifacts gallery automatically, not the board. Include the full user question and relevant non-private context.',
       parameters: {
         type: 'object',
         properties: { query: { type: 'string' } },
@@ -79,7 +79,7 @@ Keep every spoken reply under twelve words. The visual dashboard is the main res
       type: 'function',
       name: 'control_visual',
       description:
-        'Act on the visual currently on screen: keep it on the board as a widget, refine its design or content, or close it.',
+        'Act on the visual currently on screen: keep a widget version of it on the board, refine its design or content, or close it.',
       parameters: {
         type: 'object',
         properties: {
