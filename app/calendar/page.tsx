@@ -666,8 +666,8 @@ function PeopleView({
   if (!members.length)
     return (
       <p className="calendar-notice">
-        Add the household on the <Link href="/family">Family page</Link> to see
-        everyone’s column.
+        Add the household on the{' '}
+        <Link href="/family">Family page</Link> to see everyone’s column.
       </p>
     );
   return (
