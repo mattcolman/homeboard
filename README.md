@@ -54,13 +54,9 @@ Open **http://localhost:3000** directly — not through a proxy or tunnel. Mutat
 
 ### Database migrations
 
-The local D1 database is created by miniflare under `.wrangler/state/v3/d1/` on first dev run. New migrations must be applied manually — find the sqlite file and run:
+The local D1 database is created by miniflare under `.wrangler/state/v3/d1/` on first dev run. Pending migrations in `drizzle/` are applied automatically — `npm run dev` runs them via `predev`, and `npm run migrate` runs them standalone. Applied files are tracked in a `homeboard_migrations` table inside the local DB, so reruns only apply what's new.
 
-```sh
-sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite < drizzle/0003_happy_thunderbolts.sql
-```
-
-Apply files in order; skip any already applied. `drizzle/0007_grey_betty_brant.sql` adds `artifact_images`, which stores the generated illustrations used by visual answers (served from `GET /api/artifacts/images/<id>`).
+`drizzle/0007_grey_betty_brant.sql` adds `artifact_images`, which stores the generated illustrations used by visual answers (served from `GET /api/artifacts/images/<id>`).
 
 ## Scripts
 
