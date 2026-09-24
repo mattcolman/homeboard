@@ -133,7 +133,7 @@
 .widget-grid {
   display: grid;
   grid-template-columns: repeat(var(--columns, 12), minmax(0, 1fr));
-  grid-auto-rows: clamp(88px, calc((100dvh - 240px) /6), 112px);
+  grid-auto-rows: clamp(88px, calc((100dvh - 240px) / 6), 112px);
   gap: 16px;
   min-height: 608px;
   align-items: stretch;
@@ -401,20 +401,22 @@
   gap: 8px;
   margin-top: 6px;
 }
-.widget-tone-swatch {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
+.homeboard-app .widget-tone-swatch {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   padding: 0;
-  border-radius: 50%;
+  flex: none;
+  border-radius: 10px;
   border: 2px solid transparent;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   cursor: pointer;
 }
-.widget-tone-swatch.widget-tone-swatch.is-selected {
+.homeboard-app .widget-tone-swatch.is-selected {
   border-color: var(--foreground);
 }
-.widget-tone-swatch:disabled {
+.homeboard-app .widget-tone-swatch:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -1091,7 +1093,7 @@
   object-fit: cover;
 }
 .recipe-video::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: rgba(14, 21, 38, 0.35);
@@ -1246,10 +1248,10 @@
 .custom-fallback {
   padding: 4px 0;
 }
-.artifact-view .custom-widget iframe[data-kind='page'] {
+.artifact-view .custom-widget iframe[data-kind="page"] {
   min-height: 70vh;
 }
-.custom-widget iframe:not([data-ready='yes']) {
+.custom-widget iframe:not([data-ready="yes"]) {
   position: absolute;
   opacity: 0;
   pointer-events: none;
