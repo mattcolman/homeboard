@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import './prepare-widget-api-test.mjs';
-const { GET, POST } =
-  await import('../.wrangler/widget-api-tests/familyroute.mjs');
-const widgetsRoute = await import('../.wrangler/widget-api-tests/route.mjs');
+const { GET, POST } = await import(
+  '../.wrangler/widget-api-tests/familyroute.mjs'
+);
+const widgetsRoute = await import(
+  '../.wrangler/widget-api-tests/route.mjs'
+);
 
 const base = process.env.HOMEBOARD_TEST_URL || 'http://localhost:5178';
 const owner = `family-test-${crypto.randomUUID()}`;

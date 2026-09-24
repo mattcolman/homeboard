@@ -9,7 +9,10 @@ import {
   Users,
 } from 'lucide-react';
 import type { FamilyMember } from '../lib/widgets/model';
-import { MEMBER_COLORS, MEMBER_EMOJIS } from '../lib/family-palette';
+import {
+  MEMBER_COLORS,
+  MEMBER_EMOJIS,
+} from '../lib/family-palette';
 import { ThemeToggle } from '../components/ThemeToggle';
 import '../connections/connections.css';
 import './family.css';
@@ -136,7 +139,9 @@ export default function Family() {
 
   function toggleCalendar(id: string) {
     setFormCalendars((current) =>
-      current.includes(id) ? current.filter((c) => c !== id) : [...current, id],
+      current.includes(id)
+        ? current.filter((c) => c !== id)
+        : [...current, id],
     );
   }
 
