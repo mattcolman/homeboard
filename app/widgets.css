@@ -1093,7 +1093,7 @@
   object-fit: cover;
 }
 .recipe-video::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   background: rgba(14, 21, 38, 0.35);
@@ -1248,10 +1248,10 @@
 .custom-fallback {
   padding: 4px 0;
 }
-.artifact-view .custom-widget iframe[data-kind="page"] {
+.artifact-view .custom-widget iframe[data-kind='page'] {
   min-height: 70vh;
 }
-.custom-widget iframe:not([data-ready="yes"]) {
+.custom-widget iframe:not([data-ready='yes']) {
   position: absolute;
   opacity: 0;
   pointer-events: none;
