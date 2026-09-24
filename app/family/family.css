@@ -33,6 +33,9 @@
 .emoji-grid button {
   width: 44px;
   height: 44px;
+  min-height: 0;
+  padding: 0;
+  flex: none;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--card);
@@ -53,6 +56,9 @@
 .color-grid button {
   width: 40px;
   height: 40px;
+  min-height: 0;
+  padding: 0;
+  flex: none;
   border: 0;
   border-radius: 50%;
   cursor: pointer;
@@ -106,7 +112,7 @@
   color: var(--muted-foreground);
   font-size: 0.8125rem;
 }
-.member-edit {
+.member-row .member-edit {
   min-height: 40px;
   padding: 6px 14px;
   border: 1px solid var(--border);
@@ -116,9 +122,11 @@
   font-size: 0.875rem;
   cursor: pointer;
 }
-.member-remove {
+.member-row .member-remove {
   min-width: 40px;
   min-height: 40px;
+  margin-right: 8px;
+  padding: 0;
   display: grid;
   place-items: center;
   border: 0;
