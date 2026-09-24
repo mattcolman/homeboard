@@ -903,6 +903,7 @@ function StickyBody({
 }) {
   const note = widget.snapshot.data.note ?? '';
   const [draft, setDraft] = useState(note);
+  useEffect(() => setDraft(note), [note]);
   const save = () => {
     const text = draft.trim();
     if (!text || text === note) return;

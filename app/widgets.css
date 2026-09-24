@@ -756,10 +756,6 @@
   overflow-wrap: anywhere;
   transform: rotate(-1deg);
 }
-.sticky-widget.is-focus .sticky-note-text {
-  font-size: 2.2rem;
-  transform: none;
-}
 .sticky-widget.is-focus textarea {
   flex: 1;
   min-height: 120px;
