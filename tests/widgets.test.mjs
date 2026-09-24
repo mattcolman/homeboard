@@ -299,3 +299,33 @@ await test('relative times are short, human labels', () => {
   assert.equal(relativeTime('2026-03-01T00:00:00Z', now), 'just now');
   assert.equal(relativeTime('not-a-date', now), 'just now');
 });
+await test('pages rewrite --muted used as a text colour', () => {
+  const page = (css) => ({
+    title: 'How a plant grows',
+    summary: 'A seed becomes a plant in stages.',
+    tone: 'emerald',
+    timeSensitive: false,
+    html: '<p>Seed</p>',
+    css,
+    js: '',
+    images: [],
+  });
+  assert.equal(
+    validatePage({
+      ...page(
+        'p{color: var(--muted)} .box{background-color:var(--muted)} .x{background:var(--muted)}',
+      ),
+    }).definition.module.css,
+    'p{color:var(--muted-foreground)} .box{background-color:var(--muted)} .x{background:var(--muted)}',
+  );
+});
+await test('generated modules rewrite --muted used as a text colour', () => {
+  const input = generated();
+  input.kind = 'module';
+  input.module.css =
+    'p{color: var(--muted)} .box{background-color:var(--muted)} .x{background:var(--muted)}';
+  assert.equal(
+    validateGenerated(input).definition.module.css,
+    'p{color:var(--muted-foreground)} .box{background-color:var(--muted)} .x{background:var(--muted)}',
+  );
+});
