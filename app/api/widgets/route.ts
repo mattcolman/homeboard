@@ -1,6 +1,7 @@
 import {
   actOnWidget,
   assertMutationOrigin,
+  createStickyNote,
   loadBoard,
   ownerFor,
   recipeWidget,
@@ -63,6 +64,11 @@ export async function POST(request: Request) {
         { headers },
       );
     }
+    if (input.action === 'sticky')
+      return Response.json(
+        { widget: await createStickyNote(owner, input.text) },
+        { headers },
+      );
     if (typeof input.id !== 'string' || input.id.length > 150)
       throw new WidgetError('Choose a widget first.');
     return Response.json(

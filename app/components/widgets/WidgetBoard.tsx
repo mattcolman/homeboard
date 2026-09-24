@@ -38,6 +38,7 @@ import {
   RefreshCw,
   ShoppingBasket,
   Sparkles,
+  StickyNote,
   Sun,
   Undo2,
   X,
@@ -657,6 +658,7 @@ const KIND_BADGE: Record<
   recipe: { icon: CookingPot, color: '#d95f22' },
   library: { icon: LibraryBig, color: '#d95f22' },
   chores: { icon: ListTodo, color: '#b07417' },
+  sticky: { icon: StickyNote, color: '#b07417' },
   composition: { icon: Sparkles, color: '#6d4be0' },
   module: { icon: Puzzle, color: '#6d4be0' },
   page: { icon: Puzzle, color: '#6d4be0' },
@@ -888,6 +890,50 @@ function ChoresBody({
   );
 }
 
+function StickyBody({
+  widget,
+  focus,
+  action,
+  offline,
+}: {
+  widget: Widget;
+  focus: boolean;
+  action: WidgetAction;
+  offline: boolean;
+}) {
+  const note = widget.snapshot.data.note ?? '';
+  const [draft, setDraft] = useState(note);
+  const save = () => {
+    const text = draft.trim();
+    if (!text || text === note) return;
+    void action(widget, 'edit_note', { text });
+  };
+  if (focus)
+    return (
+      <div className="sticky-widget is-focus">
+        <textarea
+          disabled={offline}
+          value={draft}
+          maxLength={280}
+          aria-label="Sticky note"
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <button
+          className="quiet-button"
+          disabled={offline || !draft.trim() || draft.trim() === note}
+          onClick={save}
+        >
+          Save note
+        </button>
+      </div>
+    );
+  return (
+    <div className="sticky-widget">
+      <p className="sticky-note-text">{note}</p>
+    </div>
+  );
+}
+
 function WidgetContent({
   widget,
   focus,
@@ -934,6 +980,13 @@ function WidgetContent({
     return <WeatherBody widget={widget} focus={focus} />;
   if (widget.definition.kind === 'chores')
     return <ChoresBody {...{ widget, focus, action, members, offline }} />;
+  if (widget.definition.kind === 'sticky')
+    return (
+      <StickyBody
+        key={widget.snapshot.data.note}
+        {...{ widget, focus, action, offline }}
+      />
+    );
   if (widget.definition.kind === 'library')
     return <LibraryBody {...{ widget, action, onRecipe, offline }} />;
   if (widget.definition.kind === 'shopping') {

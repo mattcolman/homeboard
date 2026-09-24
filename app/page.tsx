@@ -901,6 +901,14 @@ export default function Homeboard() {
         });
         if (!result) throw Error('The chores list was not changed.');
         output = { added: true };
+      } else if (item.name === 'add_sticky_note') {
+        if (offlineRef.current) throw Error('Reconnect to add a sticky note.');
+        const result = await api({ action: 'sticky', text: args.text });
+        ++mutationSeq.current;
+        replaceWidget(result.widget);
+        showFocus(result.widget.id);
+        setMessage('Sticky note added to the board.');
+        output = { added: true, id: result.widget.id };
       } else if (item.name === 'get_calendar_events') {
         const calendar = boardRef.current?.widgets.find(
           (widget) => !widget.archived && widget.definition.kind === 'calendar',

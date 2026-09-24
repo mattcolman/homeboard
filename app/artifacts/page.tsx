@@ -28,6 +28,7 @@ const KIND_ICON: Record<Definition['kind'], LucideIcon> = {
   recipe: LayoutGrid,
   library: LayoutGrid,
   chores: LayoutGrid,
+  sticky: LayoutGrid,
 };
 
 export default function ArtifactsPage() {
