@@ -6,7 +6,9 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "predev": "node scripts/migrate-local.mjs",
     "dev": "vinext dev",
+    "migrate": "node scripts/migrate-local.mjs",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
