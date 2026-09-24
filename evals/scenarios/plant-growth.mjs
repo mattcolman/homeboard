@@ -37,16 +37,15 @@ export default {
     { say: 'Keep this.' },
     {
       expect: [
-        { tool_called: { name: 'control_visual', args: { action: 'keep' } } },
-        { name: 'kept-acknowledgement', reply_max_words: 12 },
+        { tool_called: { name: 'control_visual', args: { action: 'save' } } },
+        { name: 'saved-acknowledgement', reply_max_words: 12 },
       ],
     },
     {
-      expect_state: [
+      expect_artifact: [
         {
-          kind: 'composition',
-          exists: true,
-          name: 'promoted-widget-on-board',
+          name: 'visual-saved-to-gallery',
+          saved: true,
         },
       ],
     },

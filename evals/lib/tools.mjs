@@ -94,11 +94,13 @@ export class ToolExecutor {
       case 'control_visual': {
         const current = this.artifact;
         if (!current) throw Error('No visual is open. Ask what to show.');
-        if (args.action === 'keep') {
-          const { widget } = await this.board.artifactAct(current.id, 'keep');
-          this.artifact = null;
-          this.focused = widget.id;
-          return { kept: true, title: widget.title };
+        if (args.action === 'save') {
+          const { artifact } = await this.board.artifactAct(
+            current.id,
+            'save',
+          );
+          this.artifact = artifact;
+          return { saved: true, title: artifact.title };
         }
         if (args.action === 'refine') {
           const { artifact } = await this.board.artifactAct(
@@ -139,13 +141,12 @@ export class ToolExecutor {
         if (!args.widget && this.artifact) {
           const current = this.artifact;
           if (args.action === 'keep') {
-            const { widget } = await this.board.artifactAct(
+            const { artifact } = await this.board.artifactAct(
               current.id,
-              'keep',
+              'save',
             );
-            this.artifact = null;
-            this.focused = widget.id;
-            return { updated: widget.title };
+            this.artifact = artifact;
+            return { updated: artifact.title };
           }
           if (args.action === 'refine') {
             const { artifact } = await this.board.artifactAct(

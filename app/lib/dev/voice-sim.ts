@@ -54,24 +54,18 @@ const content = (value: Partial<ContentValue>): ContentValue => ({
 /** The newest real artifact so the replay shows genuine content. */
 export async function latestArtifact(): Promise<Artifact> {
   try {
-    const list = (await fetch('/api/artifacts', { cache: 'no-store' }).then(
-      (r) => r.json(),
-    )) as { artifacts?: { id: string }[] };
-    const id = list.artifacts?.[0]?.id;
-    if (id) {
-      const found = (await fetch(
-        `/api/artifacts?id=${encodeURIComponent(id)}`,
-        { cache: 'no-store' },
-      ).then((r) => r.json())) as { artifact?: Artifact };
-      if (found.artifact) return found.artifact;
-    }
+    const list = (await fetch('/api/artifacts?scope=recent', {
+      cache: 'no-store',
+    }).then((r) => r.json())) as { artifacts?: Artifact[] };
+    if (list.artifacts?.[0]) return list.artifacts[0];
   } catch {}
   return simulatedArtifact();
 }
 
 /** Used when the gallery is empty; never persisted. */
 export function simulatedArtifact(): Artifact {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString(),
+    expires = new Date(Date.now() + 24 * 3600e3).toISOString();
   return {
     id: 'simulated',
     title: 'How plants grow',
@@ -123,6 +117,7 @@ export function simulatedArtifact(): Artifact {
     state: {},
     promotedWidgetId: null,
     createdAt: now,
-    expiresAt: now,
+    expiresAt: expires,
+    saved: false,
   };
 }

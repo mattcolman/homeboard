@@ -1,32 +1,47 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './prepare-widget-api-test.mjs';
-const { storeImage, getImage, deleteImages, imageIdsIn } = await import(
-  '../.wrangler/widget-api-tests/images.mjs'
-);
+const {
+  storeImage,
+  getImage,
+  deleteImages,
+  touchImages,
+  purgeExpiredImages,
+  imageIdsIn,
+} = await import('../.wrangler/widget-api-tests/images.mjs');
 const { GET } = await import('../.wrangler/widget-api-tests/imageroute.mjs');
 const { env } = await import('../.wrangler/widget-api-tests/runtime.mjs');
 const base = process.env.HOMEBOARD_TEST_URL || 'http://localhost:5178';
 const owner = `image-test-${crypto.randomUUID()}`;
 const bytes = new Uint8Array([1, 2, 3, 4]);
 
-await test('store, fetch and delete an image with owner isolation', async () => {
+await test('store, fetch, touch, purge and delete with owner isolation', async () => {
   const future = new Date(Date.now() + 3600e3).toISOString();
   const id = await storeImage(owner, { bytes, mime: 'image/webp' }, future);
   const found = await getImage(owner, id);
   assert.equal(found.mime, 'image/webp');
   assert.deepEqual(Array.from(found.bytes), [1, 2, 3, 4]);
   assert.equal(await getImage('someone-else', id), null);
-  // The expires_at column is inert — artifact images live with their artifact.
+  // An expired image reads as missing until touchImages lifts its expiry.
   const past = new Date(Date.now() - 60e3).toISOString();
-  const stillHere = await storeImage(
-    owner,
-    { bytes, mime: 'image/webp' },
-    past,
+  const revived = await storeImage(owner, { bytes, mime: 'image/webp' }, past);
+  assert.equal(await getImage(owner, revived), null);
+  await touchImages(owner, [revived], future);
+  assert.ok(await getImage(owner, revived));
+  // Purge removes only expired rows.
+  const dropped = await storeImage(owner, { bytes, mime: 'image/webp' }, past);
+  await purgeExpiredImages(owner);
+  assert.equal(
+    await env.DB.prepare(
+      'SELECT id FROM artifact_images WHERE owner_id=? AND id=?',
+    )
+      .bind(owner, dropped)
+      .first(),
+    null,
   );
-  assert.ok(await getImage(owner, stillHere));
+  assert.ok(await getImage(owner, revived));
   // deleteImages removes listed ids outright.
-  await deleteImages(owner, [id, stillHere]);
+  await deleteImages(owner, [id, revived]);
   assert.equal(await getImage(owner, id), null);
   assert.deepEqual(
     (

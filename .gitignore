@@ -20,6 +20,7 @@
 .DS_Store
 *.pem
 .lavish/
+/spike/webview/WebViewSpike.app/
 
 # debug
 npm-debug.log*

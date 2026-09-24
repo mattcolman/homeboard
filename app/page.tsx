@@ -17,6 +17,7 @@ import {
   Plus,
   Settings,
   Sparkles,
+  Trash2,
   Undo2,
   Users,
   WifiOff,
@@ -34,6 +35,7 @@ import {
   saveOfflineStep,
 } from './lib/widgets/offline';
 import {
+  relativeTime,
   stepId,
   type Artifact,
   type Board,
@@ -68,6 +70,9 @@ const voiceCopy: Record<Voice, string> = {
 };
 // On for `npm run dev`; the production build inlines this to false.
 const DEV_MODE = process.env.NODE_ENV !== 'production';
+// A quiet stretch while listening ends the session — the mic never sits hot
+// behind a modal or after a finished answer.
+const VOICE_IDLE_MS = 15000;
 export default function Homeboard() {
   const [board, setBoard] = useState<Board | null>(null),
     [loading, setLoading] = useState(true),
@@ -82,6 +87,7 @@ export default function Homeboard() {
     [choices, setChoices] = useState<Recipe[] | null>(null),
     [lastRemoved, setLastRemoved] = useState<Widget | null>(null),
     [artifact, setArtifact] = useState<Artifact | null>(null),
+    [recent, setRecent] = useState<Artifact[]>([]),
     [visualQuery, setVisualQuery] = useState<string | null>(null),
     [micStream, setMicStream] = useState<MediaStream | null>(null),
     [replyStream, setReplyStream] = useState<MediaStream | null>(null);
@@ -111,6 +117,10 @@ export default function Homeboard() {
     >(async () => {}),
     voiceQueue = useRef<Promise<unknown>>(Promise.resolve()),
     seenCalls = useRef(new Set<string>()),
+    voiceRef = useRef<Voice>('idle'),
+    lastVoiceActivity = useRef(0),
+    meterCtx = useRef<AudioContext | null>(null),
+    meter = useRef<AnalyserNode | null>(null),
     voiceBar = useRef<HTMLDivElement>(null),
     simRun = useRef(0),
     simStop = useRef<(() => void) | null>(null);
@@ -256,6 +266,18 @@ export default function Homeboard() {
         );
     }
   }, [commitBoard]);
+  const loadRecent = useCallback(async () => {
+    try {
+      const response = await fetch('/api/artifacts?scope=recent', {
+        cache: 'no-store',
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { artifacts?: Artifact[] };
+      setRecent(data.artifacts ?? []);
+    } catch {
+      // Recent answers are optional; keep what we have.
+    }
+  }, []);
   useEffect(() => {
     const dialog = requestDialog.current;
     if (typed && !dialog?.open) dialog?.showModal();
@@ -265,6 +287,7 @@ export default function Homeboard() {
     void Promise.resolve()
       .then(loadBoard)
       .finally(() => setLoading(false));
+    void Promise.resolve().then(loadRecent);
     const wake = () => {
       if (document.visibilityState === 'visible') void loadBoard();
     };
@@ -303,7 +326,7 @@ export default function Homeboard() {
       window.removeEventListener('online', online);
       window.removeEventListener('offline', lost);
     };
-  }, [loadBoard]);
+  }, [loadBoard, loadRecent]);
   async function api(
     input: Record<string, unknown>,
   ): Promise<{ widget: Widget; reused?: boolean }> {
@@ -369,19 +392,13 @@ export default function Homeboard() {
     try {
       const result = await artifactApi({ action: 'create', query });
       showArtifact(result.artifact!);
-      setMessage('Here’s your visual. Say “keep this” to add it to the board.');
+      void loadRecent();
+      setMessage('Here’s your visual. Say “save it” to keep it.');
       return result.artifact!;
     } finally {
       setVisualQuery(null);
       setGenerating(false);
     }
-  }
-  async function keepVisualAsWidget(a: Artifact) {
-    // Keeping creates a real board widget from the same question rather than
-    // pinning the visual itself; the artifact stays in the gallery.
-    const result = await create(a.query);
-    showArtifact(null);
-    return result.widget;
   }
   async function refineArtifactView(a: Artifact, instruction: string) {
     setGenerating(true);
@@ -398,9 +415,17 @@ export default function Homeboard() {
       setGenerating(false);
     }
   }
+  async function saveArtifactView(a: Artifact) {
+    const result = await artifactApi({ action: 'save', id: a.id });
+    showArtifact(result.artifact!);
+    void loadRecent();
+    setMessage('Saved to your Artifacts.');
+    return result.artifact!;
+  }
   async function dismissArtifactView(a: Artifact) {
     await artifactApi({ action: 'dismiss', id: a.id });
     showArtifact(null);
+    void loadRecent();
   }
   const action: WidgetAction = (widget, kind, args = {}) => {
     const execute = async () => {
@@ -577,6 +602,9 @@ export default function Homeboard() {
     audio.current = null;
     setMicStream(null);
     setReplyStream(null);
+    meterCtx.current?.close().catch(() => {});
+    meterCtx.current = null;
+    meter.current = null;
     setVoice('idle');
   }
   useEffect(
@@ -592,6 +620,32 @@ export default function Homeboard() {
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
+  }, []);
+  useEffect(() => {
+    voiceRef.current = voice;
+  }, [voice]);
+  // End the session after a quiet stretch. Only fires while listening — never
+  // mid-thought or mid-reply — and live mic audio keeps it alive, so it can't
+  // cut off someone mid-sentence.
+  useEffect(() => {
+    const idle = window.setInterval(() => {
+      if (!peer.current || voiceRef.current !== 'listening') return;
+      const analyser = meter.current;
+      if (analyser) {
+        const buf = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(buf);
+        for (const v of buf)
+          if (Math.abs(v - 128) > 4) {
+            lastVoiceActivity.current = Date.now();
+            break;
+          }
+      }
+      if (Date.now() - lastVoiceActivity.current > VOICE_IDLE_MS) {
+        stop();
+        setMessage('Voice off after a quiet spell — tap the mic to talk.');
+      }
+    }, 1000);
+    return () => window.clearInterval(idle);
   }, []);
   function reply(callId: string | undefined, output: unknown) {
     if (!callId || channel.current?.readyState !== 'open') return;
@@ -690,15 +744,15 @@ export default function Homeboard() {
       } else if (item.name === 'control_visual') {
         const current = artifactRef.current;
         if (!current) throw Error('No visual is open. Ask what to show.');
-        if (args.action === 'keep') {
-          const kept = await keepVisualAsWidget(current);
-          output = { kept: true, title: kept.title };
-        } else if (args.action === 'refine') {
+        if (args.action === 'refine') {
           const updated = await refineArtifactView(
             current,
             typeof args.instruction === 'string' ? args.instruction : '',
           );
           output = { updated: updated.title };
+        } else if (args.action === 'save') {
+          const saved = await saveArtifactView(current);
+          output = { saved: true, title: saved.title };
         } else if (args.action === 'close') {
           showArtifact(null);
           output = { closed: true };
@@ -710,8 +764,9 @@ export default function Homeboard() {
         } else if (!args.widget && artifactRef.current) {
           const current = artifactRef.current;
           if (args.action === 'keep') {
-            const kept = await keepVisualAsWidget(current);
-            output = { updated: kept.title };
+            // "Keep this" over a visual means save it — promotion is gone.
+            const saved = await saveArtifactView(current);
+            output = { saved: true, title: saved.title };
           } else if (args.action === 'refine') {
             const updated = await refineArtifactView(
               current,
@@ -956,10 +1011,18 @@ export default function Homeboard() {
       });
       stream.current = media;
       setMicStream(media);
+      const ctx = new AudioContext(),
+        analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      ctx.createMediaStreamSource(media).connect(analyser);
+      meterCtx.current = ctx;
+      meter.current = analyser;
+      lastVoiceActivity.current = Date.now();
       media.getAudioTracks().forEach((track) => pc.addTrack(track, media));
       const dc = pc.createDataChannel('oai-events');
       channel.current = dc;
       dc.onopen = () => {
+        lastVoiceActivity.current = Date.now();
         setVoice('listening');
         dc.send(
           JSON.stringify({
@@ -1014,6 +1077,17 @@ export default function Homeboard() {
         )
           setVoice('speaking');
         if (data.type === 'response.done') setVoice('listening');
+        // Any turn progress counts as activity; keepalive chatter does not.
+        if (
+          data.type === 'input_audio_buffer.speech_started' ||
+          data.type === 'input_audio_buffer.speech_stopped' ||
+          data.type === 'response.created' ||
+          data.type === 'response.output_audio.delta' ||
+          data.type === 'response.audio.delta' ||
+          data.type === 'response.done' ||
+          data.type === 'response.output_item.done'
+        )
+          lastVoiceActivity.current = Date.now();
         if (
           data.type === 'response.output_item.done' &&
           data.item?.type === 'function_call' &&
@@ -1239,6 +1313,43 @@ export default function Homeboard() {
           )}
         </section>
       )}
+      {!focusId && !artifact && !choices && !!recent.length && (
+        <section className="recent-artifacts" aria-label="Recent answers">
+          <h3>Recent answers</h3>
+          <div>
+            {recent.map((a) => (
+              <div className="recent-card" key={a.id}>
+                <button
+                  className="recent-open"
+                  onClick={() => showArtifact(a)}
+                >
+                  <span>{a.title}</span>
+                  <small>
+                    {relativeTime(a.createdAt)}
+                    {a.saved ? ' · saved' : ''}
+                  </small>
+                </button>
+                <button
+                  className="recent-delete"
+                  aria-label={`Delete ${a.title}`}
+                  title="Delete this answer"
+                  onClick={() =>
+                    void dismissArtifactView(a).catch((error) =>
+                      setMessage(
+                        error instanceof Error
+                          ? error.message
+                          : 'The answer could not be deleted.',
+                      ),
+                    )
+                  }
+                >
+                  <Trash2 />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       {!!board && !board.widgets.some((w) => !w.archived) && (
         <section className="empty-board">
           <h1>A little room for something useful.</h1>
@@ -1409,6 +1520,15 @@ export default function Homeboard() {
                           ? error.message
                           : 'The visual could not be updated.',
                       ),
+                  )
+                }
+                onSave={() =>
+                  void saveArtifactView(artifact).catch((error) =>
+                    setMessage(
+                      error instanceof Error
+                        ? error.message
+                        : 'The visual could not be saved.',
+                    ),
                   )
                 }
                 onDelete={() =>

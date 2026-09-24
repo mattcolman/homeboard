@@ -7,9 +7,10 @@ import {
   createArtifact,
   dismissArtifact,
   getArtifact,
-  keepArtifactAsWidget,
   listArtifacts,
+  listRecentArtifacts,
   refineArtifact,
+  saveArtifact,
   setArtifactState,
 } from '@/app/lib/artifacts';
 import { failure, NO_STORE } from '@/app/lib/api';
@@ -19,11 +20,14 @@ const headers = NO_STORE;
 export async function GET(request: Request) {
   try {
     const owner = ownerFor(request);
-    const id = new URL(request.url).searchParams.get('id');
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id');
     return Response.json(
       id
         ? { artifact: await getArtifact(owner, id) }
-        : { artifacts: await listArtifacts(owner) },
+        : url.searchParams.get('scope') === 'recent'
+          ? { artifacts: await listRecentArtifacts(owner) }
+          : { artifacts: await listArtifacts(owner) },
       { headers },
     );
   } catch (error) {
@@ -73,10 +77,11 @@ export async function POST(request: Request) {
           { artifact: await setArtifactState(owner, id, input.state) },
           { headers },
         );
-      case 'keep':
-        return Response.json(await keepArtifactAsWidget(owner, id), {
-          headers,
-        });
+      case 'save':
+        return Response.json(
+          { artifact: await saveArtifact(owner, id) },
+          { headers },
+        );
       case 'dismiss':
         await dismissArtifact(owner, id);
         return Response.json({ dismissed: true }, { headers });
