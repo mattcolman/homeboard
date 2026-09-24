@@ -42,6 +42,8 @@ const {
   validateState,
   isExpired,
   relativeTime,
+  widgetTone,
+  PICKABLE_TONES,
 } = await import(
   pathToFileURL(`${process.cwd()}/.wrangler/widget-tests/model.mjs`)
 );
@@ -266,6 +268,19 @@ test('freshness and source URL boundaries are explicit', () => {
     'https://user:secret@example.com',
   ])
     assert.equal(safeUrl(url), false);
+});
+await test('a binding tone overrides the definition tone and forest is never offered', () => {
+  const widget = {
+    definition: { tone: 'emerald' },
+    binding: { type: 'ingest' },
+  };
+  assert.equal(widgetTone(widget), 'emerald');
+  assert.equal(
+    widgetTone({ ...widget, binding: { type: 'ingest', tone: 'violet' } }),
+    'violet',
+  );
+  assert.ok(!PICKABLE_TONES.includes('forest'));
+  assert.ok(PICKABLE_TONES.includes('cream'));
 });
 await test('relative times are short, human labels', () => {
   const now = new Date('2026-02-20T12:00:00Z').getTime();

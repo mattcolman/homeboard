@@ -721,6 +721,7 @@ export default function Homeboard() {
             const result = await action(widget, String(args.action), {
               size: args.size,
               instruction: args.instruction,
+              tone: args.tone === 'auto' ? null : args.tone,
             });
             if (!result) throw Error('The widget could not be updated.');
             output = { updated: result.title };
@@ -734,6 +735,7 @@ export default function Homeboard() {
             const result = await action(widget, String(args.action), {
               size: args.size,
               instruction: args.instruction,
+              tone: args.tone === 'auto' ? null : args.tone,
             });
             if (!result) throw Error('The widget could not be updated.');
             output = { updated: result.title };

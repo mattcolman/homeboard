@@ -94,7 +94,7 @@ Keep every spoken reply under twelve words. The visual dashboard is the main res
       type: 'function',
       name: 'control_widget',
       description:
-        'Focus, keep, resize, refresh, refine, undo or remove a widget. Omit widget only when one is focused. Use board to return to the overview.',
+        "Focus, keep, resize, recolour, refresh, refine, undo or remove a widget. Omit widget only when one is focused. Use board to return to the overview. Use tone to recolour a widget ('auto' restores the default).",
       parameters: {
         type: 'object',
         properties: {
@@ -108,9 +108,24 @@ Keep every spoken reply under twelve words. The visual dashboard is the main res
               'unpin',
               'size',
               'refresh',
+              'tone',
               'refine',
               'undo',
               'remove',
+            ],
+          },
+          tone: {
+            type: 'string',
+            enum: [
+              'indigo',
+              'sky',
+              'green',
+              'terracotta',
+              'emerald',
+              'amber',
+              'violet',
+              'cream',
+              'auto',
             ],
           },
           size: {
