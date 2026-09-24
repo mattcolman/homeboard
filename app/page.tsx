@@ -326,6 +326,7 @@ export default function Homeboard() {
         commitBoard({
           widgets: [],
           members: [],
+          eventPeople: [],
           cacheScope: '',
           serverTime: new Date().toISOString(),
         });
@@ -351,6 +352,7 @@ export default function Homeboard() {
         commitBoard({
           widgets: [],
           members: [],
+          eventPeople: [],
           cacheScope: '',
           serverTime: new Date().toISOString(),
         });

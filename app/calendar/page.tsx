@@ -11,8 +11,10 @@ import {
 import type {
   Board,
   CalendarEvent,
+  EventPeople,
   FamilyMember,
 } from '../lib/widgets/model';
+import { buildEventPeopleMap, peopleForEvent } from '../lib/calendar/people';
 import { SiteNav } from '../components/SiteNav';
 import './calendar.css';
 
@@ -59,6 +61,7 @@ export default function CalendarPage() {
   const [view, setView] = useState<View>('agenda');
   const [cursor, setCursor] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [selected, setSelected] = useState<CalendarEvent | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -81,12 +84,14 @@ export default function CalendarPage() {
     (w) => w.definition.kind === 'calendar' && !w.archived,
   );
   const members = useMemo(() => board?.members ?? [], [board]);
-  const byCalendar = useMemo(() => {
-    const map = new Map<string, FamilyMember>();
-    for (const member of members)
-      for (const id of member.calendarIds) map.set(id, member);
-    return map;
-  }, [members]);
+  const eventPeople = useMemo(
+    () => buildEventPeopleMap(board?.eventPeople ?? []),
+    [board],
+  );
+  const peopleFor = useCallback(
+    (event: CalendarEvent) => peopleForEvent(event, members, eventPeople),
+    [members, eventPeople],
+  );
   const events = useMemo(
     () =>
       (calendar?.snapshot.data.calendarEvents ?? [])
@@ -105,8 +110,26 @@ export default function CalendarPage() {
     return map;
   }, [events]);
   const colorFor = (event: CalendarEvent) =>
-    byCalendar.get(event.calendarId)?.color ?? event.calendarColor;
-  const memberFor = (event: CalendarEvent) => byCalendar.get(event.calendarId);
+    peopleFor(event)[0]?.color ?? event.calendarColor;
+
+  const assignPeople = async (
+    externalUid: string,
+    input: { memberIds: string[] } | { clear: true },
+  ) => {
+    const response = await fetch('/api/family', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'assign', externalUid, ...input }),
+    });
+    const data = (await response.json()) as {
+      eventPeople?: EventPeople[];
+      error?: string;
+    };
+    if (!response.ok)
+      throw Error(data.error || 'The assignment could not be saved.');
+    setBoard((b) => (b ? { ...b, eventPeople: data.eventPeople ?? [] } : b));
+    setSelected(null);
+  };
 
   const refresh = async () => {
     if (!calendar || refreshing) return;
@@ -178,7 +201,10 @@ export default function CalendarPage() {
               <button aria-label="Previous" onClick={() => shift(-1)}>
                 <ChevronLeft />
               </button>
-              <button className="period-today" onClick={() => setCursor(new Date())}>
+              <button
+                className="period-today"
+                onClick={() => setCursor(new Date())}
+              >
                 {periodLabel}
               </button>
               <button aria-label="Next" onClick={() => shift(1)}>
@@ -226,17 +252,18 @@ export default function CalendarPage() {
           {view === 'agenda' && (
             <AgendaView
               events={events}
-              memberFor={memberFor}
+              peopleFor={peopleFor}
               colorFor={colorFor}
               today={today}
               tomorrow={tomorrow}
+              onSelect={setSelected}
             />
           )}
           {view === 'week' && (
             <WeekView
               weekStart={startOfWeek(cursor)}
               eventsByDay={eventsByDay}
-              memberFor={memberFor}
+              peopleFor={peopleFor}
               colorFor={colorFor}
               today={today}
             />
@@ -253,36 +280,164 @@ export default function CalendarPage() {
             <PeopleView
               events={events}
               members={members}
-              memberFor={memberFor}
+              peopleFor={peopleFor}
               colorFor={colorFor}
               today={today}
               tomorrow={tomorrow}
+              onSelect={setSelected}
             />
           )}
         </section>
+      )}
+      {selected && (
+        <AssignPeople
+          event={selected}
+          members={members}
+          assigned={peopleFor(selected)}
+          explicit={eventPeople.has(selected.externalUid)}
+          onClose={() => setSelected(null)}
+          onSave={assignPeople}
+        />
       )}
     </main>
   );
 }
 
+function AssignPeople({
+  event,
+  members,
+  assigned,
+  explicit,
+  onClose,
+  onSave,
+}: {
+  event: CalendarEvent;
+  members: FamilyMember[];
+  assigned: FamilyMember[];
+  explicit: boolean;
+  onClose: () => void;
+  onSave: (
+    externalUid: string,
+    input: { memberIds: string[] } | { clear: true },
+  ) => Promise<void>;
+}) {
+  const [checked, setChecked] = useState<Set<string>>(
+    new Set(assigned.map((member) => member.id)),
+  );
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    const close = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [onClose]);
+
+  const run = async (input: { memberIds: string[] } | { clear: true }) => {
+    setSaving(true);
+    setError('');
+    try {
+      await onSave(event.externalUid, input);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'The assignment could not be saved.',
+      );
+      setSaving(false);
+    }
+  };
+
+  return (
+    // The backdrop closes on a direct click; Escape is handled above.
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+    <div
+      className="people-assign-backdrop"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <dialog
+        open
+        className="people-assign"
+        aria-label={`Assign people to ${event.title}`}
+      >
+        <strong>{event.title}</strong>
+        <small>
+          {timeLabel(event)} · {event.calendarName}
+        </small>
+        <p className="people-assign-hint">
+          Applies to every occurrence of this event.
+        </p>
+        <div className="people-assign-list">
+          {members.map((member) => (
+            <label key={member.id}>
+              <input
+                type="checkbox"
+                checked={checked.has(member.id)}
+                onChange={() =>
+                  setChecked((current) => {
+                    const next = new Set(current);
+                    if (next.has(member.id)) next.delete(member.id);
+                    else next.add(member.id);
+                    return next;
+                  })
+                }
+              />
+              <span
+                className="people-avatar"
+                style={{ background: member.color }}
+              >
+                {member.emoji || member.name.slice(0, 1)}
+              </span>
+              {member.name}
+            </label>
+          ))}
+        </div>
+        {!checked.size && (
+          <p className="people-assign-hint">Everyone (shared)</p>
+        )}
+        {error && <p className="people-assign-error">{error}</p>}
+        <div className="people-assign-actions">
+          <button
+            type="button"
+            className="people-assign-save"
+            disabled={saving}
+            onClick={() => void run({ memberIds: [...checked] })}
+          >
+            Save
+          </button>
+          {explicit && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void run({ clear: true })}
+            >
+              Use automatic
+            </button>
+          )}
+          <button type="button" disabled={saving} onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </dialog>
+    </div>
+  );
+}
+
 function AgendaView({
   events,
-  memberFor,
+  peopleFor,
   colorFor,
   today,
   tomorrow,
+  onSelect,
 }: {
   events: CalendarEvent[];
-  memberFor: (e: CalendarEvent) => FamilyMember | undefined;
+  peopleFor: (e: CalendarEvent) => FamilyMember[];
   colorFor: (e: CalendarEvent) => string;
   today: string;
   tomorrow: string;
+  onSelect: (e: CalendarEvent) => void;
 }) {
   if (!events.length)
     return (
-      <p className="calendar-notice">
-        No upcoming events in the next 45 days.
-      </p>
+      <p className="calendar-notice">No upcoming events in the next 45 days.</p>
     );
   const days = new Map<string, CalendarEvent[]>();
   for (const event of events) {
@@ -297,21 +452,31 @@ function AgendaView({
         <div key={key}>
           <h2 className="agenda-day">{dayLabel(key, today, tomorrow)}</h2>
           {dayEvents.map((event) => {
-            const member = memberFor(event);
+            const people = peopleFor(event);
             return (
-              <article className="agenda-event" key={event.id}>
+              <button
+                type="button"
+                className="agenda-event"
+                key={event.id}
+                onClick={() => onSelect(event)}
+              >
                 <time dateTime={event.startsAt}>{timeLabel(event)}</time>
                 <i style={{ background: colorFor(event) }} />
                 <div>
                   <strong>{event.title}</strong>
                   <small>
-                    {member
-                      ? `${member.emoji ? `${member.emoji} ` : ''}${member.name}`
+                    {people.length
+                      ? people
+                          .map(
+                            (member) =>
+                              `${member.emoji ? `${member.emoji} ` : ''}${member.name}`,
+                          )
+                          .join(' · ')
                       : event.calendarName}
                     {event.location ? ` · ${event.location}` : ''}
                   </small>
                 </div>
-              </article>
+              </button>
             );
           })}
         </div>
@@ -324,19 +489,38 @@ function EventChip({
   event,
   color,
   label,
+  onSelect,
 }: {
   event: CalendarEvent;
   color: string;
   label?: string;
+  onSelect?: (e: CalendarEvent) => void;
 }) {
+  const content = (
+    <>
+      {!event.allDay && <time>{timeLabel(event)}</time>}
+      <span>{label ?? event.title}</span>
+    </>
+  );
+  if (onSelect)
+    return (
+      <button
+        type="button"
+        className="event-chip"
+        title={`${timeLabel(event)} — ${event.title}`}
+        style={{ borderLeftColor: color }}
+        onClick={() => onSelect(event)}
+      >
+        {content}
+      </button>
+    );
   return (
     <div
       className="event-chip"
       title={`${timeLabel(event)} — ${event.title}`}
       style={{ borderLeftColor: color }}
     >
-      {!event.allDay && <time>{timeLabel(event)}</time>}
-      <span>{label ?? event.title}</span>
+      {content}
     </div>
   );
 }
@@ -344,13 +528,13 @@ function EventChip({
 function WeekView({
   weekStart,
   eventsByDay,
-  memberFor,
+  peopleFor,
   colorFor,
   today,
 }: {
   weekStart: Date;
   eventsByDay: Map<string, CalendarEvent[]>;
-  memberFor: (e: CalendarEvent) => FamilyMember | undefined;
+  peopleFor: (e: CalendarEvent) => FamilyMember[];
   colorFor: (e: CalendarEvent) => string;
   today: string;
 }) {
@@ -371,7 +555,7 @@ function WeekView({
             </header>
             <div className="week-events">
               {dayEvents.map((event) => {
-                const member = memberFor(event);
+                const member = peopleFor(event)[0];
                 return (
                   <EventChip
                     key={event.id}
@@ -451,28 +635,32 @@ function MonthView({
 function PeopleView({
   events,
   members,
-  memberFor,
+  peopleFor,
   colorFor,
   today,
   tomorrow,
+  onSelect,
 }: {
   events: CalendarEvent[];
   members: FamilyMember[];
-  memberFor: (e: CalendarEvent) => FamilyMember | undefined;
+  peopleFor: (e: CalendarEvent) => FamilyMember[];
   colorFor: (e: CalendarEvent) => string;
   today: string;
   tomorrow: string;
+  onSelect: (e: CalendarEvent) => void;
 }) {
   const columns = [
     ...members.map((member) => ({
       key: member.id,
       member,
-      events: events.filter((e) => memberFor(e)?.id === member.id),
+      events: events.filter((e) =>
+        peopleFor(e).some((p) => p.id === member.id),
+      ),
     })),
     {
       key: 'shared',
       member: undefined,
-      events: events.filter((e) => !memberFor(e)),
+      events: events.filter((e) => !peopleFor(e).length),
     },
   ];
   if (!members.length)
@@ -516,13 +704,15 @@ function PeopleView({
                       key={event.id}
                       event={event}
                       color={colorFor(event)}
+                      onSelect={onSelect}
                     />
                   ))}
                 </div>
               ))
-            ) : member && !member.calendarIds.length ? (
+            ) : member ? (
               <p className="people-empty">
-                Nothing linked yet — connect their calendars on the{' '}
+                Nothing scheduled. Events that mention {member.name} land here,
+                or link their calendars on the{' '}
                 <Link href="/family">Family page</Link>.
               </p>
             ) : (

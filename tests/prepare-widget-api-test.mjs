@@ -18,6 +18,7 @@ const files = {
   'curate-shopping': 'app/lib/widgets/curate-shopping.ts',
   store: 'app/lib/widgets/store.ts',
   calendar: 'app/lib/calendar/icloud.ts',
+  people: 'app/lib/calendar/people.ts',
   local: 'app/lib/calendar/local.ts',
   weather: 'app/lib/weather.ts',
   recipes: 'app/lib/recipes.ts',

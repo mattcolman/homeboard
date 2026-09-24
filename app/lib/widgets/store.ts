@@ -8,7 +8,7 @@ import {
 } from '../calendar/icloud';
 import { generateWidget } from './generation';
 import { curateForShopping, type CuratedItem } from './curate-shopping';
-import { listMembers } from '../family';
+import { listEventPeople, listMembers } from '../family';
 import { weatherPlace, weatherSnapshot } from '../weather';
 import {
   isExpired,
@@ -505,6 +505,7 @@ export async function loadBoard(
   return {
     widgets,
     members,
+    eventPeople: await listEventPeople(owner),
     cacheScope: scope,
     serverTime: new Date().toISOString(),
   };

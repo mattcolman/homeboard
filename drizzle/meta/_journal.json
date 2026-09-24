@@ -57,6 +57,13 @@
       "when": 1790144910652,
       "tag": "0007_grey_betty_brant",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790224460051,
+      "tag": "0008_needy_tarantula",
+      "breakpoints": true
     }
   ]
 }

@@ -757,7 +757,7 @@ export async function calendarSnapshot(
   const now = new Date();
   const result = await db()
     .prepare(
-      'SELECT id,calendar_id,calendar_name,calendar_color,title,starts_at,ends_at,all_day,location FROM calendar_events WHERE owner_id=? AND ends_at > CASE WHEN all_day=1 THEN ? ELSE ? END ORDER BY starts_at LIMIT 100',
+      'SELECT id,external_uid,calendar_id,calendar_name,calendar_color,title,starts_at,ends_at,all_day,location FROM calendar_events WHERE owner_id=? AND ends_at > CASE WHEN all_day=1 THEN ? ELSE ? END ORDER BY starts_at LIMIT 100',
     )
     .bind(
       owner,
@@ -766,6 +766,7 @@ export async function calendarSnapshot(
     )
     .all<{
       id: string;
+      external_uid: string;
       calendar_id: string;
       calendar_name: string;
       calendar_color: string;
@@ -783,6 +784,7 @@ export async function calendarSnapshot(
       calendarError: row.last_error,
       calendarEvents: result.results.map((event) => ({
         id: event.id,
+        externalUid: event.external_uid,
         calendarId: event.calendar_id,
         calendarName: event.calendar_name,
         calendarColor: event.calendar_color,

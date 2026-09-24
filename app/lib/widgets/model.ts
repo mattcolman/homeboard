@@ -132,6 +132,7 @@ export type Widget = {
 };
 export type CalendarEvent = {
   id: string;
+  externalUid: string;
   calendarId: string;
   calendarName: string;
   calendarColor: string;
@@ -186,10 +187,13 @@ export type FamilyMember = {
   color: string;
   emoji: string;
   calendarIds: string[];
+  aliases: string[];
 };
+export type EventPeople = { externalUid: string; memberIds: string[] };
 export type Board = {
   widgets: Widget[];
   members: FamilyMember[];
+  eventPeople: EventPeople[];
   cacheScope: string;
   serverTime: string;
 };
