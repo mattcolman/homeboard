@@ -1,12 +1,12 @@
 'use client';
-import { ArrowLeft, Pin, RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2, X } from 'lucide-react';
 import {
   artifactAsWidget,
   safeUrl,
   type Artifact,
   type WidgetState,
 } from '@/app/lib/widgets/model';
-import { badgeFor, Composition, WidgetBoundary } from './WidgetBoard';
+import { Composition, WidgetBoundary } from './WidgetBoard';
 import { CustomWidget } from './CustomWidget';
 import { Freshness } from './Freshness';
 
@@ -14,24 +14,21 @@ export function ArtifactView({
   artifact,
   offline,
   busy,
-  onBack,
-  onKeep,
+  onClose,
   onRefine,
-  onDismiss,
+  onDelete,
   onState,
 }: {
   artifact: Artifact;
   offline: boolean;
   busy: boolean;
-  onBack: () => void;
-  onKeep: () => void;
+  onClose: () => void;
   onRefine: (instruction: string) => void;
-  onDismiss: () => void;
+  onDelete: () => void;
   onState: (state: WidgetState) => void;
 }) {
   const w = artifactAsWidget(artifact),
-    tone = w.definition.tone,
-    BadgeIcon = badgeFor(w).icon;
+    tone = w.definition.tone;
   const composition = (
     <Composition
       widget={w}
@@ -50,21 +47,18 @@ export function ArtifactView({
   );
   return (
     <section className="artifact-view">
-      <button className="board-back" onClick={onBack}>
-        <ArrowLeft />
-        Your board
+      <button
+        className="artifact-close"
+        onClick={onClose}
+        aria-label="Close visual"
+        title="Close"
+      >
+        <X />
       </button>
       <article
         className={`hb-widget is-focused tone-${tone} ${tone !== 'cream' ? 'is-colored' : ''}`}
         aria-label={artifact.title}
       >
-        <span
-          className="widget-icon-badge"
-          style={{ color: badgeFor(w).color }}
-          aria-hidden
-        >
-          <BadgeIcon />
-        </span>
         <header className="widget-header">
           <div>
             <span className="widget-label">Visual answer</span>
@@ -110,14 +104,6 @@ export function ArtifactView({
         )}
       </article>
       <div className="artifact-actions">
-        <button
-          className="primary-button"
-          disabled={offline || busy}
-          onClick={onKeep}
-        >
-          <Pin />
-          Keep on board
-        </button>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -141,12 +127,13 @@ export function ArtifactView({
         <button
           className="quiet-button"
           disabled={offline || busy}
-          onClick={onDismiss}
+          onClick={onDelete}
         >
           <Trash2 />
-          Discard
+          Delete
         </button>
       </div>
+      {busy && <span className="artifact-progress" aria-hidden />}
     </section>
   );
 }

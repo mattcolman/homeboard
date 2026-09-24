@@ -329,7 +329,9 @@ export function packWidgets(
   return slots;
 }
 
-export const ARTIFACT_TTL_MS = 24 * 3600e3;
+// Artifacts persist until dismissed; the expires_at column is inert and gets a
+// far-future sentinel for rows written after the TTL was removed.
+export const ARTIFACT_NEVER_EXPIRES = '9999-12-31T23:59:59.999Z';
 export type Artifact = {
   id: string;
   title: string;
@@ -341,6 +343,10 @@ export type Artifact = {
   createdAt: string;
   expiresAt: string;
 };
+export type ArtifactSummary = Pick<
+  Artifact,
+  'id' | 'title' | 'query' | 'createdAt'
+> & { kind: Definition['kind'] };
 /** Synthetic widget so Composition/CustomWidget can render an artifact body. */
 export function artifactAsWidget(a: Artifact): Widget {
   return {

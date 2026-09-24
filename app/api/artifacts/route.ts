@@ -6,8 +6,9 @@ import {
 import {
   createArtifact,
   dismissArtifact,
+  getArtifact,
+  keepArtifactAsWidget,
   listArtifacts,
-  promoteArtifact,
   refineArtifact,
   setArtifactState,
 } from '@/app/lib/artifacts';
@@ -17,8 +18,12 @@ export const dynamic = 'force-dynamic';
 const headers = NO_STORE;
 export async function GET(request: Request) {
   try {
+    const owner = ownerFor(request);
+    const id = new URL(request.url).searchParams.get('id');
     return Response.json(
-      { artifacts: await listArtifacts(ownerFor(request)) },
+      id
+        ? { artifact: await getArtifact(owner, id) }
+        : { artifacts: await listArtifacts(owner) },
       { headers },
     );
   } catch (error) {
@@ -69,7 +74,9 @@ export async function POST(request: Request) {
           { headers },
         );
       case 'keep':
-        return Response.json(await promoteArtifact(owner, id), { headers });
+        return Response.json(await keepArtifactAsWidget(owner, id), {
+          headers,
+        });
       case 'dismiss':
         await dismissArtifact(owner, id);
         return Response.json({ dismissed: true }, { headers });

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   ArrowLeft,
+  FlaskConical,
   Keyboard,
   LoaderCircle,
   Mic,
@@ -33,7 +34,6 @@ import {
   saveOfflineStep,
 } from './lib/widgets/offline';
 import {
-  relativeTime,
   stepId,
   type Artifact,
   type Board,
@@ -48,6 +48,7 @@ import {
 } from './lib/calendar/local';
 import LegacyHome from './legacy-home';
 import { SiteNav } from './components/SiteNav';
+import { VoiceWave } from './components/VoiceWave';
 import './widgets.css';
 
 type Voice =
@@ -65,6 +66,8 @@ const voiceCopy: Record<Voice, string> = {
   speaking: 'Speaking',
   error: 'Try voice again',
 };
+// On for `npm run dev`; the production build inlines this to false.
+const DEV_MODE = process.env.NODE_ENV !== 'production';
 export default function Homeboard() {
   const [board, setBoard] = useState<Board | null>(null),
     [loading, setLoading] = useState(true),
@@ -79,7 +82,9 @@ export default function Homeboard() {
     [choices, setChoices] = useState<Recipe[] | null>(null),
     [lastRemoved, setLastRemoved] = useState<Widget | null>(null),
     [artifact, setArtifact] = useState<Artifact | null>(null),
-    [recent, setRecent] = useState<Artifact[]>([]);
+    [visualQuery, setVisualQuery] = useState<string | null>(null),
+    [micStream, setMicStream] = useState<MediaStream | null>(null),
+    [replyStream, setReplyStream] = useState<MediaStream | null>(null);
   const legacy = useSyncExternalStore(
     () => () => {},
     () => new URLSearchParams(location.search).get('legacy') === '1',
@@ -105,7 +110,10 @@ export default function Homeboard() {
       }) => Promise<void>
     >(async () => {}),
     voiceQueue = useRef<Promise<unknown>>(Promise.resolve()),
-    seenCalls = useRef(new Set<string>());
+    seenCalls = useRef(new Set<string>()),
+    voiceBar = useRef<HTMLDivElement>(null),
+    simRun = useRef(0),
+    simStop = useRef<(() => void) | null>(null);
   const showFocus = (id: string | null) => {
     focusRef.current = id;
     setFocusId(id);
@@ -119,16 +127,7 @@ export default function Homeboard() {
       setChoices(null);
     }
   };
-  const loadRecent = useCallback(async () => {
-    try {
-      const response = await fetch('/api/artifacts', { cache: 'no-store' });
-      if (!response.ok) return;
-      const data = (await response.json()) as { artifacts?: Artifact[] };
-      setRecent(data.artifacts ?? []);
-    } catch {
-      // Recent answers are optional; keep what we have.
-    }
-  }, []);
+
   const signedOut = useRef(false),
     requestDialog = useRef<HTMLDialogElement>(null);
   const commitBoard = useCallback((next: Board) => {
@@ -266,7 +265,6 @@ export default function Homeboard() {
     void Promise.resolve()
       .then(loadBoard)
       .finally(() => setLoading(false));
-    void Promise.resolve().then(loadRecent);
     const wake = () => {
       if (document.visibilityState === 'visible') void loadBoard();
     };
@@ -305,7 +303,7 @@ export default function Homeboard() {
       window.removeEventListener('online', online);
       window.removeEventListener('offline', lost);
     };
-  }, [loadBoard, loadRecent]);
+  }, [loadBoard]);
   async function api(
     input: Record<string, unknown>,
   ): Promise<{ widget: Widget; reused?: boolean }> {
@@ -363,6 +361,9 @@ export default function Homeboard() {
   }
   async function showVisual(query: string) {
     if (offlineRef.current) throw Error('Reconnect to ask for a visual.');
+    // Close any open visual so a fresh request re-morphs from the mic popup.
+    showArtifact(null);
+    setVisualQuery(query);
     setGenerating(true);
     setMessage('Putting together a visual…');
     try {
@@ -371,25 +372,16 @@ export default function Homeboard() {
       setMessage('Here’s your visual. Say “keep this” to add it to the board.');
       return result.artifact!;
     } finally {
+      setVisualQuery(null);
       setGenerating(false);
     }
   }
-  async function keepArtifact(a: Artifact) {
-    // Keeping a page re-generates a widget server-side, which can take a few
-    // seconds — hold the busy flag so the action can't fire twice.
-    setGenerating(true);
-    try {
-      const result = await artifactApi({ action: 'keep', id: a.id });
-      ++mutationSeq.current;
-      replaceWidget(result.widget!);
-      showArtifact(null);
-      showFocus(result.widget!.id);
-      void loadRecent();
-      setMessage('Kept on your board.');
-      return result.widget!;
-    } finally {
-      setGenerating(false);
-    }
+  async function keepVisualAsWidget(a: Artifact) {
+    // Keeping creates a real board widget from the same question rather than
+    // pinning the visual itself; the artifact stays in the gallery.
+    const result = await create(a.query);
+    showArtifact(null);
+    return result.widget;
   }
   async function refineArtifactView(a: Artifact, instruction: string) {
     setGenerating(true);
@@ -409,7 +401,6 @@ export default function Homeboard() {
   async function dismissArtifactView(a: Artifact) {
     await artifactApi({ action: 'dismiss', id: a.id });
     showArtifact(null);
-    void loadRecent();
   }
   const action: WidgetAction = (widget, kind, args = {}) => {
     const execute = async () => {
@@ -573,6 +564,9 @@ export default function Homeboard() {
     );
   }
   function stop() {
+    ++simRun.current;
+    simStop.current?.();
+    simStop.current = null;
     peer.current?.close();
     channel.current?.close();
     stream.current?.getTracks().forEach((t) => t.stop());
@@ -581,6 +575,8 @@ export default function Homeboard() {
     channel.current = null;
     stream.current = null;
     audio.current = null;
+    setMicStream(null);
+    setReplyStream(null);
     setVoice('idle');
   }
   useEffect(
@@ -590,6 +586,13 @@ export default function Homeboard() {
     },
     [],
   );
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && artifactRef.current) showArtifact(null);
+    };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, []);
   function reply(callId: string | undefined, output: unknown) {
     if (!callId || channel.current?.readyState !== 'open') return;
     channel.current.send(
@@ -688,7 +691,7 @@ export default function Homeboard() {
         const current = artifactRef.current;
         if (!current) throw Error('No visual is open. Ask what to show.');
         if (args.action === 'keep') {
-          const kept = await keepArtifact(current);
+          const kept = await keepVisualAsWidget(current);
           output = { kept: true, title: kept.title };
         } else if (args.action === 'refine') {
           const updated = await refineArtifactView(
@@ -707,7 +710,7 @@ export default function Homeboard() {
         } else if (!args.widget && artifactRef.current) {
           const current = artifactRef.current;
           if (args.action === 'keep') {
-            const kept = await keepArtifact(current);
+            const kept = await keepVisualAsWidget(current);
             output = { updated: kept.title };
           } else if (args.action === 'refine') {
             const updated = await refineArtifactView(
@@ -932,6 +935,7 @@ export default function Homeboard() {
       sound.setAttribute('playsinline', '');
       pc.ontrack = (e) => {
         sound.srcObject = e.streams[0];
+        setReplyStream(e.streams[0]);
         void sound.play().catch(() => {});
       };
       pc.onconnectionstatechange = () => {
@@ -951,6 +955,7 @@ export default function Homeboard() {
         },
       });
       stream.current = media;
+      setMicStream(media);
       media.getAudioTracks().forEach((track) => pc.addTrack(track, media));
       const dc = pc.createDataChannel('oai-events');
       channel.current = dc;
@@ -1049,6 +1054,61 @@ export default function Homeboard() {
       );
     }
   }
+  // Dev mode: replays mic → listening → visual popup → fullscreen artifact →
+  // spoken reply with synthetic audio, without the realtime model.
+  async function simulateVoice() {
+    const run = ++simRun.current,
+      sim = await import('./lib/dev/voice-sim');
+    const wait = (ms: number) =>
+      new Promise<void>((resolve, reject) =>
+        setTimeout(
+          () =>
+            simRun.current === run ? resolve() : reject(Error('cancelled')),
+          ms,
+        ),
+      );
+    const speak = (pitch: number, seconds: number) => {
+      simStop.current?.();
+      const voiceSim = sim.syntheticVoice(pitch, seconds);
+      simStop.current = voiceSim.stop;
+      return voiceSim.stream;
+    };
+    showArtifact(null);
+    try {
+      setVoice('connecting');
+      await wait(700);
+      setMicStream(speak(140, 2.4));
+      setVoice('listening');
+      setMessage(`“${sim.SIM_QUERY}”`);
+      await wait(2700);
+      simStop.current?.();
+      setMicStream(null);
+      setVoice('thinking');
+      await wait(700);
+      setVisualQuery(sim.SIM_QUERY);
+      setGenerating(true);
+      setMessage('Putting together a visual…');
+      const [found] = await Promise.all([sim.latestArtifact(), wait(3800)]);
+      showArtifact(found);
+      setVisualQuery(null);
+      setGenerating(false);
+      setMessage('Here’s your visual.');
+      setReplyStream(speak(210, 2));
+      setVoice('speaking');
+      await wait(2300);
+    } catch {
+      setVisualQuery(null);
+      setGenerating(false);
+    } finally {
+      if (simRun.current === run) {
+        simStop.current?.();
+        simStop.current = null;
+        setMicStream(null);
+        setReplyStream(null);
+        setVoice('idle');
+      }
+    }
+  }
   if (legacy) return <LegacyHome />;
   return (
     <main className="homeboard-app">
@@ -1121,54 +1181,7 @@ export default function Homeboard() {
           </button>
         </div>
       </header>
-      {artifact ? (
-        <ArtifactView
-          artifact={artifact}
-          offline={offline}
-          busy={generating}
-          onBack={() => showArtifact(null)}
-          onKeep={() =>
-            void keepArtifact(artifact).catch((error) =>
-              setMessage(
-                error instanceof Error
-                  ? error.message
-                  : 'The visual could not be kept.',
-              ),
-            )
-          }
-          onRefine={(instruction) =>
-            void refineArtifactView(artifact, instruction).catch((error) =>
-              setMessage(
-                error instanceof Error
-                  ? error.message
-                  : 'The visual could not be updated.',
-              ),
-            )
-          }
-          onDismiss={() =>
-            void dismissArtifactView(artifact).catch((error) =>
-              setMessage(
-                error instanceof Error
-                  ? error.message
-                  : 'The visual could not be discarded.',
-              ),
-            )
-          }
-          onState={(state: WidgetState) => {
-            void artifactApi({ action: 'state', id: artifact.id, state })
-              .then((result) => {
-                if (result.artifact) showArtifact(result.artifact);
-              })
-              .catch((error) =>
-                setMessage(
-                  error instanceof Error
-                    ? error.message
-                    : 'That change could not be saved.',
-                ),
-              );
-          }}
-        />
-      ) : choices ? (
+      {choices ? (
         <section className="recipe-results">
           <button className="board-back" onClick={() => setChoices(null)}>
             <ArrowLeft />
@@ -1226,19 +1239,6 @@ export default function Homeboard() {
           )}
         </section>
       )}
-      {!focusId && !artifact && !choices && !!recent.length && (
-        <section className="recent-artifacts" aria-label="Recent answers">
-          <h3>Recent answers</h3>
-          <div>
-            {recent.map((a) => (
-              <button key={a.id} onClick={() => showArtifact(a)}>
-                <span>{a.title}</span>
-                <small>{relativeTime(a.createdAt)}</small>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
       {!!board && !board.widgets.some((w) => !w.archived) && (
         <section className="empty-board">
           <h1>A little room for something useful.</h1>
@@ -1262,20 +1262,52 @@ export default function Homeboard() {
             </button>
           )}
         </output>
-        <div className={`homeboard-voice voice-${voice}`}>
-          <button
-            className="homeboard-mic"
-            aria-label={
-              voice === 'idle' || voice === 'error'
-                ? 'Start voice request'
-                : 'Stop voice request'
-            }
-            onClick={() => void startVoice()}
-            disabled={offline}
-          >
-            {voice === 'idle' || voice === 'error' ? <Mic /> : <MicOff />}
-          </button>
-          <span>{generating ? 'Working on it…' : voiceCopy[voice]}</span>
+        <div
+          ref={voiceBar}
+          className={`homeboard-voice voice-${voice}${voice === 'idle' || voice === 'error' ? '' : ' is-live'}`}
+        >
+          <div className="mic-orb">
+            <i className="mic-ring" aria-hidden />
+            <i className="mic-ring" aria-hidden />
+            <button
+              className="homeboard-mic"
+              aria-label={
+                voice === 'idle' || voice === 'error'
+                  ? 'Start voice request'
+                  : 'Stop voice request'
+              }
+              onClick={() => void startVoice()}
+              disabled={offline}
+            >
+              <span className="mic-light" aria-hidden>
+                <i />
+                <i />
+              </span>
+              {voice === 'idle' || voice === 'error' ? <Mic /> : <MicOff />}
+            </button>
+          </div>
+          <div className="voice-stage">
+            <span>{generating ? 'Working on it…' : voiceCopy[voice]}</span>
+            {voice !== 'idle' && voice !== 'error' && (
+              <VoiceWave
+                mode={voice}
+                mic={micStream}
+                reply={replyStream}
+                host={voiceBar}
+              />
+            )}
+          </div>
+          {DEV_MODE && (
+            <button
+              className="homeboard-simulate"
+              onClick={() => void simulateVoice()}
+              disabled={voice !== 'idle' && voice !== 'error'}
+              title="Dev mode: replay a voice request → visual without calling the model"
+            >
+              <FlaskConical />
+              Simulate
+            </button>
+          )}
           <button
             className="homeboard-type"
             onClick={() => setTyped(!typed)}
@@ -1349,6 +1381,82 @@ export default function Homeboard() {
           </div>
         </form>
       </dialog>
+      {(visualQuery !== null || artifact) && (
+        <div className="artifact-overlay-root">
+          <button
+            className={`artifact-scrim${artifact ? ' is-on' : ''}`}
+            aria-label="Close visual"
+            tabIndex={artifact ? 0 : -1}
+            onClick={() => artifact && showArtifact(null)}
+          />
+          <div
+            className={`artifact-layer${artifact ? ' is-ready' : ''}`}
+            role={artifact ? 'dialog' : 'status'}
+            aria-modal={artifact ? true : undefined}
+            aria-label={artifact ? artifact.title : 'Creating your visual'}
+          >
+            {artifact ? (
+              <ArtifactView
+                artifact={artifact}
+                offline={offline}
+                busy={generating}
+                onClose={() => showArtifact(null)}
+                onRefine={(instruction) =>
+                  void refineArtifactView(artifact, instruction).catch(
+                    (error) =>
+                      setMessage(
+                        error instanceof Error
+                          ? error.message
+                          : 'The visual could not be updated.',
+                      ),
+                  )
+                }
+                onDelete={() =>
+                  void dismissArtifactView(artifact).catch((error) =>
+                    setMessage(
+                      error instanceof Error
+                        ? error.message
+                        : 'The visual could not be deleted.',
+                    ),
+                  )
+                }
+                onState={(state: WidgetState) => {
+                  void artifactApi({ action: 'state', id: artifact.id, state })
+                    .then((result) => {
+                      if (result.artifact) showArtifact(result.artifact);
+                    })
+                    .catch((error) =>
+                      setMessage(
+                        error instanceof Error
+                          ? error.message
+                          : 'That change could not be saved.',
+                      ),
+                    );
+                }}
+              />
+            ) : (
+              <div className="artifact-loading">
+                <span className="artifact-beam" aria-hidden />
+                <header>
+                  <Sparkles className="artifact-spark" />
+                  <strong>Building your visual</strong>
+                </header>
+                <p className="artifact-loading-query">{visualQuery}</p>
+                <div className="artifact-skeleton" aria-hidden>
+                  <i className="sk-hero" />
+                  <i />
+                  <i />
+                  <i className="sk-short" />
+                </div>
+                <footer>
+                  <span className="artifact-pulse" aria-hidden />
+                  Agent at work — composing pictures and layout
+                </footer>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

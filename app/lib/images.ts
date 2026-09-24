@@ -81,7 +81,7 @@ export async function getImage(
     )
     .bind(owner, id)
     .first<Row & { expires_at: string }>();
-  if (!row || row.expires_at <= new Date().toISOString()) return null;
+  if (!row) return null;
   const bytes =
     row.bytes instanceof Uint8Array
       ? row.bytes
@@ -89,25 +89,17 @@ export async function getImage(
   return { bytes, mime: row.mime };
 }
 
-export async function touchImages(
+export async function deleteImages(
   owner: string,
   ids: string[],
-  expiresAt: string,
 ): Promise<void> {
   if (!ids.length) return;
   const marks = ids.map(() => '?').join(',');
   await db()
     .prepare(
-      `UPDATE artifact_images SET expires_at=? WHERE owner_id=? AND id IN (${marks})`,
+      `DELETE FROM artifact_images WHERE owner_id=? AND id IN (${marks})`,
     )
-    .bind(expiresAt, owner, ...ids)
-    .run();
-}
-
-export async function purgeExpiredImages(owner: string): Promise<void> {
-  await db()
-    .prepare('DELETE FROM artifact_images WHERE owner_id=? AND expires_at<=?')
-    .bind(owner, new Date().toISOString())
+    .bind(owner, ...ids)
     .run();
 }
 

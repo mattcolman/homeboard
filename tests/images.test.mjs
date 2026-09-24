@@ -1,40 +1,41 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './prepare-widget-api-test.mjs';
-const { storeImage, getImage, touchImages, purgeExpiredImages, imageIdsIn } =
-  await import('../.wrangler/widget-api-tests/images.mjs');
+const { storeImage, getImage, deleteImages, imageIdsIn } = await import(
+  '../.wrangler/widget-api-tests/images.mjs'
+);
 const { GET } = await import('../.wrangler/widget-api-tests/imageroute.mjs');
 const { env } = await import('../.wrangler/widget-api-tests/runtime.mjs');
 const base = process.env.HOMEBOARD_TEST_URL || 'http://localhost:5178';
 const owner = `image-test-${crypto.randomUUID()}`;
 const bytes = new Uint8Array([1, 2, 3, 4]);
 
-await test('store and fetch an image with owner isolation and expiry', async () => {
+await test('store, fetch and delete an image with owner isolation', async () => {
   const future = new Date(Date.now() + 3600e3).toISOString();
   const id = await storeImage(owner, { bytes, mime: 'image/webp' }, future);
   const found = await getImage(owner, id);
   assert.equal(found.mime, 'image/webp');
   assert.deepEqual(Array.from(found.bytes), [1, 2, 3, 4]);
   assert.equal(await getImage('someone-else', id), null);
-  // Expired rows read as missing and purge.
+  // The expires_at column is inert — artifact images live with their artifact.
   const past = new Date(Date.now() - 60e3).toISOString();
-  const dead = await storeImage(owner, { bytes, mime: 'image/webp' }, past);
-  assert.equal(await getImage(owner, dead), null);
-  await purgeExpiredImages(owner);
-  const rows = await env.DB.prepare(
-    'SELECT id FROM artifact_images WHERE owner_id=?',
-  )
-    .bind(owner)
-    .all();
-  assert.deepEqual(
-    rows.results.map((r) => r.id),
-    [id],
+  const stillHere = await storeImage(
+    owner,
+    { bytes, mime: 'image/webp' },
+    past,
   );
-  // touchImages extends the expiry of listed ids.
-  await touchImages(owner, [id], past);
+  assert.ok(await getImage(owner, stillHere));
+  // deleteImages removes listed ids outright.
+  await deleteImages(owner, [id, stillHere]);
   assert.equal(await getImage(owner, id), null);
-  await touchImages(owner, [id], future);
-  assert.ok(await getImage(owner, id));
+  assert.deepEqual(
+    (
+      await env.DB.prepare('SELECT id FROM artifact_images WHERE owner_id=?')
+        .bind(owner)
+        .all()
+    ).results,
+    [],
+  );
 });
 
 await test('imageIdsIn finds kept image URLs', () => {
