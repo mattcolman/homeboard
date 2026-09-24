@@ -17,6 +17,7 @@ import {
   packWidgets,
   SIZES,
   stepId,
+  TONES,
   supportsSmall,
   validateState,
   type Board,
@@ -480,8 +481,7 @@ export async function loadBoard(
       const changes: Changes = {};
       if (widget.title === 'Family favourites') changes.title = 'Recipes';
       if (
-        JSON.stringify(widget.snapshot.data.recipes) !==
-        JSON.stringify(recipes)
+        JSON.stringify(widget.snapshot.data.recipes) !== JSON.stringify(recipes)
       )
         changes.snapshot = emptySnapshot('Saved recipes', { recipes });
       if (Object.keys(changes).length) {
@@ -799,8 +799,7 @@ async function syncShopping(owner: string, widget: Widget, always: boolean) {
     if (
       JSON.stringify(widget.snapshot.data.items) ===
         JSON.stringify(merged.items) &&
-      JSON.stringify(widget.state.checked ?? []) ===
-        JSON.stringify(nextChecked)
+      JSON.stringify(widget.state.checked ?? []) === JSON.stringify(nextChecked)
     )
       return widget;
     return await write(
@@ -829,13 +828,7 @@ async function syncWeather(
       weatherPlace(request, widget.snapshot.data.weather),
       widget.snapshot,
     );
-    return await write(
-      owner,
-      widget,
-      { snapshot },
-      crypto.randomUUID(),
-      false,
-    );
+    return await write(owner, widget, { snapshot }, crypto.randomUUID(), false);
   } catch (error) {
     if (error instanceof WidgetError && error.status === 409)
       return getWidget(owner, widget.id);
@@ -976,7 +969,12 @@ export async function applyIngest(
     const merged = { ...widget.snapshot.data.content };
     for (const [id, value] of Object.entries(clean)) {
       if (!nodeIds.has(id)) continue;
-      const previous = merged[id] ?? { text: '', label: '', value: '', items: [] };
+      const previous = merged[id] ?? {
+        text: '',
+        label: '',
+        value: '',
+        items: [],
+      };
       merged[id] = {
         text: value.text ?? previous.text,
         label: value.label ?? previous.label,
@@ -1135,6 +1133,24 @@ export async function actOnWidget(
       for (const cols of [4, 8, 12] as Columns[])
         next.layouts[cols] = packWidgets([...others, next], cols).get(id)!;
       return write(owner, current, { size, layouts: next.layouts }, mutationId);
+    }
+    case 'tone': {
+      const tone = input.tone;
+      if (
+        tone !== null &&
+        (typeof tone !== 'string' ||
+          !(TONES as readonly string[]).includes(tone))
+      )
+        throw new WidgetError('Unknown widget colour.');
+      const { tone: _drop, ...binding } = current.binding;
+      return write(
+        owner,
+        current,
+        {
+          binding: tone === null ? binding : { ...binding, tone: tone as Tone },
+        },
+        mutationId,
+      );
     }
     case 'move': {
       const columns = input.columns as Columns,
@@ -1308,9 +1324,11 @@ export async function actOnWidget(
             ? (raw as { text?: unknown; member?: unknown })
             : {};
         const text = (
-          typeof raw === 'string' ? raw
-          : typeof named.text === 'string' ? named.text
-          : ''
+          typeof raw === 'string'
+            ? raw
+            : typeof named.text === 'string'
+              ? named.text
+              : ''
         )
           .trim()
           .slice(0, 200);
@@ -1355,9 +1373,7 @@ export async function actOnWidget(
           }),
           state: {
             ...current.state,
-            checked: (current.state.checked ?? []).filter(
-              (id) => id !== item,
-            ),
+            checked: (current.state.checked ?? []).filter((id) => id !== item),
           },
         },
         mutationId,
@@ -1370,8 +1386,7 @@ export async function actOnWidget(
       const chores = current.snapshot.data.chores ?? [];
       if (!chores.some((c) => c.id === item))
         throw new WidgetError('That chore is already gone.');
-      const memberValue =
-        typeof input.member === 'string' ? input.member : '';
+      const memberValue = typeof input.member === 'string' ? input.member : '';
       const member = (await listMembers(owner)).find(
         (m) =>
           m.id === memberValue ||
@@ -1383,9 +1398,11 @@ export async function actOnWidget(
         {
           snapshot: emptySnapshot('Household chores', {
             chores: chores.map((c) =>
-              c.id !== item ? c
-              : member ? { ...c, memberId: member.id }
-              : { id: c.id, text: c.text },
+              c.id !== item
+                ? c
+                : member
+                  ? { ...c, memberId: member.id }
+                  : { id: c.id, text: c.text },
             ),
           }),
         },

@@ -19,7 +19,8 @@ let source = ts.transpileModule(
 ).outputText;
 source = source
   .replaceAll("'cloudflare:workers'", "'./runtime.mjs'")
-  .replaceAll("'../widgets/model'", "'./model.mjs'");
+  .replaceAll("'../widgets/model'", "'./model.mjs'")
+  .replaceAll("'./local'", "'./local.mjs'");
 await writeFile('.wrangler/calendar-tests/icloud.mjs', source);
 await writeFile('.wrangler/calendar-tests/model.mjs', 'export {};');
 const localSource = ts
@@ -46,8 +47,11 @@ const {
   startOfHomeDay,
   syncShoppingItems,
 } = calendarModule;
-const { calendarEventsForRange } = await import(
+const { calendarEventsForRange, localDateKey } = await import(
   `../.wrangler/calendar-tests/local.mjs?${Date.now()}`
+);
+const { env: testEnv } = await import(
+  '../.wrangler/calendar-tests/runtime.mjs'
 );
 
 const calendar = {
@@ -224,6 +228,81 @@ test('connection discovery, sync and cached snapshot share one contract', async 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('the snapshot hides events that finished before today', async () => {
+  const owner = 'snapshot-filter-owner';
+  const nowIso = new Date().toISOString();
+  await testEnv.DB.prepare(
+    "INSERT INTO calendar_connections(owner_id,provider,account_email,encrypted_secret,calendars_json,selected_calendar_ids_json,status,last_synced_at,created_at,updated_at,parser_version) VALUES(?,?,?,?,?,?,?,?,?,?,2)",
+  )
+    .bind(
+      owner,
+      'icloud',
+      'family@icloud.com',
+      'unused',
+      '[]',
+      '[]',
+      'connected',
+      nowIso,
+      nowIso,
+      nowIso,
+    )
+    .run();
+  const todayKey = localDateKey(new Date());
+  const nominalDay = (offset) => {
+    const date = new Date(`${todayKey}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+    return date.toISOString();
+  };
+  const homeMidnight = startOfHomeDay(new Date()).getTime();
+  const insert = (id, title, startsAt, endsAt, allDay) =>
+    testEnv.DB.prepare(
+      'INSERT INTO calendar_events(id,owner_id,calendar_id,calendar_name,calendar_color,external_uid,title,starts_at,ends_at,all_day,location,source_updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+    )
+      .bind(
+        id,
+        owner,
+        'cal',
+        'Family',
+        '#315f50',
+        id,
+        title,
+        startsAt,
+        endsAt,
+        allDay,
+        null,
+        null,
+      )
+      .run();
+  // Yesterday's all-day event ends at today's nominal UTC midnight, which is
+  // still inside the real Sydney day — it must not leak into the snapshot.
+  await insert('past-allday', 'Yesterday fair', nominalDay(-1), nominalDay(0), 1);
+  await insert('today-allday', 'Today picnic', nominalDay(0), nominalDay(1), 1);
+  // A multi-day event that started earlier but is still running stays visible.
+  await insert('ongoing', 'School holidays', nominalDay(-2), nominalDay(4), 1);
+  await insert(
+    'past-timed',
+    'Late movie',
+    new Date(homeMidnight - 2 * 3600e3).toISOString(),
+    new Date(homeMidnight - 3600e3).toISOString(),
+    0,
+  );
+  await insert(
+    'today-timed',
+    'Dinner',
+    new Date(Date.now() + 3600e3).toISOString(),
+    new Date(Date.now() + 2 * 3600e3).toISOString(),
+    0,
+  );
+  const snapshot = await calendarSnapshot(owner);
+  const titles = snapshot.data.calendarEvents.map((event) => event.title);
+  assert.ok(!titles.includes('Yesterday fair'));
+  assert.ok(!titles.includes('Late movie'));
+  assert.deepEqual(
+    [...titles].sort(),
+    ['Dinner', 'School holidays', 'Today picnic'],
+  );
 });
 
 test('reminder lists are discovered and shopping items sync both ways', async () => {

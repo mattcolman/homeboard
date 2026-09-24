@@ -44,9 +44,7 @@ const first = await call();
 assert.equal(first.widgets.length, 7);
 assert.equal((await call()).widgets.length, 7);
 const weather = first.widgets.find((w) => w.definition.kind === 'weather');
-assert.ok(
-  weather.snapshot.data.weather || weather.snapshot.data.weatherError,
-);
+assert.ok(weather.snapshot.data.weather || weather.snapshot.data.weatherError);
 let shopping = first.widgets.find((w) => w.definition.kind === 'shopping');
 const mutation = {
   id: shopping.id,
@@ -118,6 +116,24 @@ assert.deepEqual(
   (await call()).widgets.find((w) => w.id === agenda.id).layouts,
   agenda.layouts,
 );
+const definitionTone = cooking.definition.tone,
+  beforeTone = cooking.revision;
+cooking = await act(cooking, 'tone', { tone: 'violet' });
+assert.equal(cooking.binding.tone, 'violet');
+assert.equal(cooking.definition.tone, definitionTone);
+assert.ok(cooking.revision > beforeTone);
+await call(
+  {
+    id: cooking.id,
+    revision: cooking.revision,
+    mutationId: crypto.randomUUID(),
+    action: 'tone',
+    tone: 'bogus',
+  },
+  400,
+);
+cooking = await act(cooking, 'tone', { tone: null });
+assert.equal(cooking.binding.tone, undefined);
 await call(
   {
     id: cooking.id,
