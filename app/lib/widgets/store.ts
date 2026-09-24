@@ -242,6 +242,25 @@ export async function createWidget(
   return getWidget(owner, id);
 }
 
+export async function createStickyNote(owner: string, text: unknown) {
+  const note = stickyNoteText(text);
+  return createWidget(owner, {
+    title: 'Sticky note',
+    definition: baseDefinition('sticky', 'amber'),
+    snapshot: emptySnapshot('Sticky note', { note }),
+    size: 'standard',
+    pinned: true,
+    binding: { type: 'sticky' },
+  });
+}
+function stickyNoteText(text: unknown) {
+  const note = typeof text === 'string' ? text.trim() : '';
+  if (!note) throw new WidgetError('Write something on the sticky note.');
+  if (note.length > 280)
+    throw new WidgetError('Sticky notes hold up to 280 characters.');
+  return note;
+}
+
 export async function loadBoard(
   owner: string,
   request?: Request,
@@ -1299,6 +1318,17 @@ export async function actOnWidget(
         mutationId,
       );
       return syncShopping(owner, written, true);
+    }
+    case 'edit_note': {
+      if (current.definition.kind !== 'sticky')
+        throw new WidgetError('Choose a sticky note first.');
+      const note = stickyNoteText(input.text);
+      return write(
+        owner,
+        current,
+        { snapshot: emptySnapshot('Sticky note', { note }) },
+        mutationId,
+      );
     }
     case 'add_chores': {
       if (current.definition.kind !== 'chores')

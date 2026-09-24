@@ -39,6 +39,7 @@ export type Definition = {
     | 'calendar'
     | 'weather'
     | 'chores'
+    | 'sticky'
     | 'composition'
     | 'module'
     | 'page';
@@ -74,6 +75,7 @@ export type Snapshot = {
     weather?: Weather;
     weatherError?: string | null;
     chores?: { id: string; text: string; memberId?: string }[];
+    note?: string;
   };
   source: string;
   sources: { title: string; url: string }[];
