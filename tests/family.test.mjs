@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import './prepare-widget-api-test.mjs';
-const { GET, POST } = await import(
-  '../.wrangler/widget-api-tests/familyroute.mjs'
-);
-const widgetsRoute = await import(
-  '../.wrangler/widget-api-tests/route.mjs'
-);
+const { GET, POST } =
+  await import('../.wrangler/widget-api-tests/familyroute.mjs');
+const widgetsRoute = await import('../.wrangler/widget-api-tests/route.mjs');
 
 const base = process.env.HOMEBOARD_TEST_URL || 'http://localhost:5178';
 const owner = `family-test-${crypto.randomUUID()}`;
@@ -35,6 +32,7 @@ test('family members can be added, edited and removed', async () => {
   const { body } = await call({
     action: 'save',
     name: 'Matt',
+    aliases: 'Isabelle, iz, Isabelle',
     color: '#5f92e7',
     emoji: '⛳',
     calendarIds: [CAL_A, CAL_B],
@@ -42,13 +40,16 @@ test('family members can be added, edited and removed', async () => {
   assert.equal(body.members.length, 1);
   const matt = body.members[0];
   assert.equal(matt.name, 'Matt');
+  assert.deepEqual(matt.aliases, ['Isabelle', 'iz']);
   assert.deepEqual(matt.calendarIds, [CAL_A, CAL_B]);
+  assert.deepEqual(body.eventPeople, []);
 
   // The board payload carries members for the calendar view.
   const board = await (
     await widgetsRoute.GET(new Request(`${base}/api/widgets`, { headers }))
   ).json();
   assert.equal(board.members[0].name, 'Matt');
+  assert.ok(Array.isArray(board.eventPeople));
 
   // A calendar can only belong to one person: assigning the second calendar to Sophie
   // removes it from Matt.
@@ -89,4 +90,62 @@ test('family members can be added, edited and removed', async () => {
     )
   ).json();
   assert.equal(other.members.length, 0);
+});
+
+void test('event people assignments upsert, clear and prune', async () => {
+  const { body } = await call({
+    action: 'save',
+    name: 'Hugo',
+    color: '#f2a541',
+    emoji: '🦕',
+    calendarIds: [],
+  });
+  const hugo = body.members.at(-1);
+  assert.deepEqual(
+    (await call({ action: 'assign', externalUid: '' })).status,
+    400,
+  );
+
+  // Unknown member ids are dropped on assign.
+  const { body: assigned } = await call({
+    action: 'assign',
+    externalUid: 'uid-team-meeting',
+    memberIds: [hugo.id, 'not-a-member'],
+  });
+  assert.deepEqual(assigned.eventPeople, [
+    { externalUid: 'uid-team-meeting', memberIds: [hugo.id] },
+  ]);
+
+  // Upserting the same event replaces the list rather than duplicating it.
+  const { body: replaced } = await call({
+    action: 'assign',
+    externalUid: 'uid-team-meeting',
+    memberIds: [],
+  });
+  assert.deepEqual(replaced.eventPeople, [
+    { externalUid: 'uid-team-meeting', memberIds: [] },
+  ]);
+
+  // Removing a member strips their id from every assignment.
+  const { body: removed } = await call({ action: 'remove', id: hugo.id });
+  assert.deepEqual(removed.eventPeople, [
+    { externalUid: 'uid-team-meeting', memberIds: [] },
+  ]);
+
+  const { body: again } = await call({
+    action: 'assign',
+    externalUid: 'uid-team-meeting',
+    memberIds: [removed.members[0]?.id ?? 'missing'],
+  });
+  assert.equal(again.eventPeople.length, 1);
+
+  // clear:true deletes the row so inference resumes.
+  const { body: cleared } = await call({
+    action: 'assign',
+    externalUid: 'uid-team-meeting',
+    clear: true,
+  });
+  assert.deepEqual(cleared.eventPeople, []);
+  const { body: get } = await call();
+  assert.deepEqual(get.eventPeople, []);
 });

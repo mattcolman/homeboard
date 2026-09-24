@@ -3,7 +3,13 @@ import {
   ownerFor,
   WidgetError,
 } from '@/app/lib/widgets/store';
-import { listMembers, removeMember, saveMember } from '@/app/lib/family';
+import {
+  assignEventPeople,
+  listEventPeople,
+  listMembers,
+  removeMember,
+  saveMember,
+} from '@/app/lib/family';
 
 export const dynamic = 'force-dynamic';
 const headers = { 'Cache-Control': 'private, no-store' };
@@ -21,8 +27,12 @@ function failure(error: unknown) {
 
 export async function GET(request: Request) {
   try {
+    const owner = ownerFor(request);
     return Response.json(
-      { members: await listMembers(ownerFor(request)) },
+      {
+        members: await listMembers(owner),
+        eventPeople: await listEventPeople(owner),
+      },
       { headers },
     );
   } catch (error) {
@@ -37,15 +47,22 @@ export async function POST(request: Request) {
     const input = (await request.json()) as Record<string, unknown>;
     if (!input || typeof input !== 'object' || Array.isArray(input))
       throw new WidgetError('Invalid request.');
+    const eventPeople =
+      input.action === 'assign' ? await assignEventPeople(owner, input) : null;
     const members =
       input.action === 'save'
         ? await saveMember(owner, input)
         : input.action === 'remove'
           ? await removeMember(owner, input.id)
-          : (() => {
-              throw new WidgetError('That action is not recognised.');
-            })();
-    return Response.json({ members }, { headers });
+          : input.action === 'assign'
+            ? await listMembers(owner)
+            : (() => {
+                throw new WidgetError('That action is not recognised.');
+              })();
+    return Response.json(
+      { members, eventPeople: eventPeople ?? (await listEventPeople(owner)) },
+      { headers },
+    );
   } catch (error) {
     return failure(error);
   }

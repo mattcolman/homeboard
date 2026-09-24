@@ -398,6 +398,109 @@
   color: var(--accent);
   font-weight: 700;
 }
+button.event-chip {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+button.event-chip:hover {
+  border-color: var(--accent);
+}
+button.agenda-event {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.agenda-event:hover {
+  border-color: var(--accent);
+}
+/* Assign people sheet */
+.people-assign-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: end center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--foreground) 35%, transparent);
+}
+.people-assign {
+  display: grid;
+  gap: 6px;
+  width: min(420px, 100%);
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--foreground) 25%, transparent);
+}
+.people-assign > strong {
+  font: 700 1.05rem/1.2 var(--font-display-local);
+}
+.people-assign > small {
+  color: var(--muted-foreground);
+}
+.people-assign-hint {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.people-assign-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0;
+}
+.people-assign-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.people-assign-list .people-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.8rem;
+}
+.people-assign-error {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.people-assign-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.people-assign-actions button {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--foreground);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.people-assign-actions .people-assign-save {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
 @media (max-width: 900px) {
   .calendar-shell {
     padding: 12px;

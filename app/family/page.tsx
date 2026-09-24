@@ -9,10 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { FamilyMember } from '../lib/widgets/model';
-import {
-  MEMBER_COLORS,
-  MEMBER_EMOJIS,
-} from '../lib/family-palette';
+import { MEMBER_COLORS, MEMBER_EMOJIS } from '../lib/family-palette';
 import { ThemeToggle } from '../components/ThemeToggle';
 import '../connections/connections.css';
 import './family.css';
@@ -20,7 +17,13 @@ import './family.css';
 type Calendar = { id: string; name: string; color: string };
 type Message = { text: string; tone: 'success' | 'error' };
 
-const EMPTY_FORM = { id: '', name: '', color: MEMBER_COLORS[0], emoji: '' };
+const EMPTY_FORM = {
+  id: '',
+  name: '',
+  aliases: '',
+  color: MEMBER_COLORS[0],
+  emoji: '',
+};
 
 export default function Family() {
   const [members, setMembers] = useState<FamilyMember[]>([]),
@@ -124,6 +127,7 @@ export default function Family() {
     setForm({
       id: member.id,
       name: member.name,
+      aliases: member.aliases.join(', '),
       color: member.color,
       emoji: member.emoji,
     });
@@ -132,9 +136,7 @@ export default function Family() {
 
   function toggleCalendar(id: string) {
     setFormCalendars((current) =>
-      current.includes(id)
-        ? current.filter((c) => c !== id)
-        : [...current, id],
+      current.includes(id) ? current.filter((c) => c !== id) : [...current, id],
     );
   }
 
@@ -173,7 +175,9 @@ export default function Family() {
         <p>
           Each person gets a name, an avatar and a colour. Link someone&apos;s
           calendars and the agenda shows their name on their plans — and later
-          views can give everyone their own column.
+          views can give everyone their own column. Events that mention
+          someone&apos;s name show under them even when they live on a
+          parent&apos;s calendar.
         </p>
       </section>
 
@@ -195,6 +199,7 @@ export default function Family() {
                 action: 'save',
                 id: form.id || undefined,
                 name: form.name,
+                aliases: form.aliases,
                 color: form.color,
                 emoji: form.emoji,
                 calendarIds: formCalendars,
@@ -219,6 +224,16 @@ export default function Family() {
                 placeholder="e.g. Alex"
                 onChange={(event) =>
                   setForm((f) => ({ ...f, name: event.target.value }))
+                }
+              />
+            </label>
+            <label className="family-field">
+              Also known as
+              <input
+                value={form.aliases}
+                placeholder="e.g. Isabelle, Iz — comma separated"
+                onChange={(event) =>
+                  setForm((f) => ({ ...f, aliases: event.target.value }))
                 }
               />
             </label>
@@ -315,7 +330,9 @@ export default function Family() {
             </span>
             <div>
               <h2>Your household</h2>
-              <p>{members.length ? `${members.length} people` : 'Nobody yet'}</p>
+              <p>
+                {members.length ? `${members.length} people` : 'Nobody yet'}
+              </p>
             </div>
           </div>
           {!members.length && (
@@ -340,8 +357,12 @@ export default function Family() {
                       ? calendars
                           .filter((c) => member.calendarIds.includes(c.id))
                           .map((c) => c.name)
-                          .join(', ') || `${member.calendarIds.length} calendars`
+                          .join(', ') ||
+                        `${member.calendarIds.length} calendars`
                       : 'No calendars linked'}
+                    {member.aliases.length
+                      ? ` · aka ${member.aliases.join(', ')}`
+                      : ''}
                   </small>
                 </div>
                 <button

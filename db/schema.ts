@@ -2,6 +2,7 @@ import {
   blob,
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
 } from 'drizzle-orm/sqlite-core';
@@ -84,10 +85,22 @@ export const familyMembers = sqliteTable(
     color: text('color').notNull(),
     emoji: text('emoji').notNull().default(''),
     calendarIdsJson: text('calendar_ids_json').notNull().default('[]'),
+    aliasesJson: text('aliases_json').notNull().default('[]'),
     ordinal: integer('ordinal').notNull().default(0),
     createdAt: text('created_at').notNull(),
   },
   (table) => [index('idx_family_members_owner').on(table.ownerId)],
+);
+
+export const eventPeople = sqliteTable(
+  'event_people',
+  {
+    ownerId: text('owner_id').notNull(),
+    externalUid: text('external_uid').notNull(),
+    memberIdsJson: text('member_ids_json').notNull().default('[]'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.ownerId, table.externalUid] })],
 );
 
 export const artifacts = sqliteTable(
