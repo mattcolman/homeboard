@@ -311,6 +311,12 @@ export async function runScenario(scenario, options = {}) {
     if (!artifact)
       return record(index, 'fail', `${name} — no visual on screen`);
     const html = artifact.definition?.module?.html ?? '';
+    if (assertion.saved !== undefined)
+      return record(
+        index,
+        (artifact.saved === true) === assertion.saved ? 'pass' : 'fail',
+        `${name} — artifact saved is '${artifact.saved}'`,
+      );
     if (assertion.kind !== undefined)
       return record(
         index,

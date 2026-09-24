@@ -1,5 +1,5 @@
 import {
-  ARTIFACT_NEVER_EXPIRES,
+  ARTIFACT_TTL_MS,
   normaliseQuery,
   safeUrl,
   TONES,
@@ -614,7 +614,7 @@ Today's date is ${new Date().toISOString().slice(0, 10)}. ${previous ? 'This is 
     );
   }
   const result = validatePage(parsed);
-  const expiresAt = ARTIFACT_NEVER_EXPIRES;
+  const expiresAt = new Date(Date.now() + ARTIFACT_TTL_MS).toISOString();
   const owner = context?.owner;
   result.definition.module = {
     ...result.definition.module!,

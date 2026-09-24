@@ -1,6 +1,7 @@
 'use client';
-import { RefreshCw, Trash2, X } from 'lucide-react';
+import { BookmarkCheck, BookmarkPlus, RefreshCw, Trash2, X } from 'lucide-react';
 import {
+  ARTIFACT_NEVER_EXPIRES,
   artifactAsWidget,
   safeUrl,
   type Artifact,
@@ -17,6 +18,7 @@ export function ArtifactView({
   onClose,
   onRefine,
   onDelete,
+  onSave,
   onState,
 }: {
   artifact: Artifact;
@@ -25,10 +27,12 @@ export function ArtifactView({
   onClose: () => void;
   onRefine: (instruction: string) => void;
   onDelete: () => void;
+  onSave: () => void;
   onState: (state: WidgetState) => void;
 }) {
   const w = artifactAsWidget(artifact),
-    tone = w.definition.tone;
+    tone = w.definition.tone,
+    saved = artifact.expiresAt === ARTIFACT_NEVER_EXPIRES;
   const composition = (
     <Composition
       widget={w}
@@ -124,6 +128,19 @@ export function ArtifactView({
             Change
           </button>
         </form>
+        <button
+          className="quiet-button"
+          disabled={offline || busy || saved}
+          onClick={onSave}
+          title={
+            saved
+              ? 'Saved to Artifacts'
+              : 'Save to your Artifacts gallery permanently'
+          }
+        >
+          {saved ? <BookmarkCheck /> : <BookmarkPlus />}
+          {saved ? 'Saved' : 'Save'}
+        </button>
         <button
           className="quiet-button"
           disabled={offline || busy}

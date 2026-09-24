@@ -102,6 +102,15 @@ export default function ArtifactPage() {
               ),
             )
           }
+          onSave={() =>
+            void act({ action: 'save' }).catch((e) =>
+              setError(
+                e instanceof Error
+                  ? e.message
+                  : 'The visual could not be saved.',
+              ),
+            )
+          }
           onDelete={() =>
             void artifactApi({ action: 'dismiss', id })
               .then(() => router.push('/artifacts'))

@@ -329,9 +329,16 @@ export function packWidgets(
   return slots;
 }
 
-// Artifacts persist until dismissed; the expires_at column is inert and gets a
-// far-future sentinel for rows written after the TTL was removed.
+// Unsaved artifacts expire after a day; saving one lifts the TTL by writing
+// a far-future sentinel, which is also what marks it for the gallery.
+export const ARTIFACT_TTL_MS = 24 * 3600e3;
 export const ARTIFACT_NEVER_EXPIRES = '9999-12-31T23:59:59.999Z';
+export function artifactSaved(
+  a: Pick<Artifact, 'expiresAt'> | { expires_at: string },
+) {
+  return ('expiresAt' in a ? a.expiresAt : a.expires_at) ===
+    ARTIFACT_NEVER_EXPIRES;
+}
 export type Artifact = {
   id: string;
   title: string;
@@ -342,10 +349,11 @@ export type Artifact = {
   promotedWidgetId: string | null;
   createdAt: string;
   expiresAt: string;
+  saved: boolean;
 };
 export type ArtifactSummary = Pick<
   Artifact,
-  'id' | 'title' | 'query' | 'createdAt'
+  'id' | 'title' | 'query' | 'createdAt' | 'saved'
 > & { kind: Definition['kind'] };
 /** Synthetic widget so Composition/CustomWidget can render an artifact body. */
 export function artifactAsWidget(a: Artifact): Widget {

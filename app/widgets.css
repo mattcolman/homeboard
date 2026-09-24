@@ -4,7 +4,7 @@
   min-height: 560px;
   display: flex;
   flex-direction: column;
-  padding: 16px 32px 12px;
+  padding: 16px 32px 52px;
   gap: 16px;
   font-family: var(--font-sans-local);
   background: var(--background);
@@ -158,32 +158,40 @@
 }
 /* Fixed widget palette — Apple-style saturated gradients with white text.
    .tone-cream stays the light option; every other tone is coloured. */
+/* --tone-strong feeds the icon badge glyph so it tracks the card colour. */
 .hb-widget.tone-indigo {
+  --tone-strong: #2b3a9e;
   border: 0;
   background: linear-gradient(155deg, #4f6df5 0%, #2b3a9e 100%);
 }
 .hb-widget.tone-sky {
+  --tone-strong: #0369c9;
   border: 0;
   background: linear-gradient(155deg, #38a4f8 0%, #0369c9 100%);
 }
 .hb-widget.tone-green {
+  --tone-strong: #0d7a45;
   border: 0;
   background: linear-gradient(155deg, #34b172 0%, #0d7a45 100%);
 }
 .hb-widget.tone-terracotta {
+  --tone-strong: #c24e17;
   border: 0;
   background: linear-gradient(155deg, #f08a4b 0%, #c24e17 100%);
 }
 .hb-widget.tone-emerald,
 .hb-widget.tone-forest {
+  --tone-strong: #0b5f43;
   border: 0;
   background: linear-gradient(155deg, #2fae7d 0%, #0b5f43 100%);
 }
 .hb-widget.tone-violet {
+  --tone-strong: #5b3df0;
   border: 0;
   background: linear-gradient(155deg, #9d86f2 0%, #5b3df0 100%);
 }
 .hb-widget.tone-amber {
+  --tone-strong: #b96f12;
   border: 0;
   background: linear-gradient(155deg, #f2b04a 0%, #b96f12 100%);
 }
@@ -279,6 +287,7 @@
   height: 56px;
   border-radius: 50%;
   place-items: center;
+  color: var(--tone-strong, var(--kind-color));
   background: var(--card);
   box-shadow:
     0 6px 18px rgba(0, 0, 0, 0.24),
@@ -1442,7 +1451,7 @@
 /* Live: rings breathe with the speaker's actual loudness. */
 .is-live .mic-ring {
   opacity: calc(0.15 + var(--level) * 1.6);
-  transform: scale(calc(1 + var(--level) * 1.3));
+  transform: scale(calc(1 + var(--level) * 0.7));
   transition:
     transform 0.09s linear,
     opacity 0.09s linear;
@@ -1450,7 +1459,7 @@
 .is-live .mic-ring + .mic-ring {
   border-width: 1px;
   opacity: calc(var(--level) * 1.1);
-  transform: scale(calc(1.05 + var(--level) * 2.2));
+  transform: scale(calc(1.02 + var(--level) * 0.9));
 }
 .homeboard-app .homeboard-mic {
   position: relative;
@@ -1798,7 +1807,7 @@
 }
 @media (max-width: 600px) {
   .homeboard-app {
-    padding: 16px;
+    padding: 16px 16px 46px;
     gap: 12px;
     min-height: 480px;
   }
@@ -2014,20 +2023,23 @@
 }
 .artifact-layer {
   position: absolute;
+  display: flex;
+  flex-direction: column;
   left: 50%;
-  bottom: 112px;
+  bottom: 152px;
   width: min(430px, 92vw);
   height: 238px;
   transform: translateX(-50%);
   overflow: hidden;
-  border: 1px solid rgba(122, 162, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.38);
   border-radius: 22px;
-  background: linear-gradient(155deg, #101a36, #0a0f24 58%, #0d1432);
+  background: linear-gradient(150deg, #9d7bff 0%, #7a5cff 48%, #5b3df0 100%);
   box-shadow:
-    0 0 0 1px rgba(122, 162, 255, 0.12),
-    0 18px 60px rgba(3, 8, 26, 0.65),
-    0 0 46px rgba(88, 130, 255, 0.2);
-  color: #e8edff;
+    0 0 0 1px rgba(139, 92, 246, 0.25),
+    0 18px 60px rgba(76, 29, 149, 0.45),
+    0 0 46px rgba(139, 92, 246, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  color: #ffffff;
   pointer-events: auto;
   animation: artifact-pop-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.15);
   transition:
@@ -2062,8 +2074,8 @@
     0 0 0 1px color-mix(in srgb, var(--foreground) 5%, transparent);
   color: var(--foreground);
 }
-/* Loading popup interior — dark "console" with a scanning light, pulsing
-   beacon and shimmering skeleton blocks. */
+/* Loading popup interior — violet glass matching the "working on it" orb:
+   a scanning light, pulsing beacon and shimmering skeleton blocks. */
 .artifact-loading {
   position: relative;
   display: grid;
@@ -2079,8 +2091,8 @@
   left: -35%;
   width: 55%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #8db8ff, transparent);
-  filter: drop-shadow(0 0 6px rgba(141, 184, 255, 0.9));
+  background: linear-gradient(90deg, transparent, #f0e9ff, transparent);
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9));
   animation: artifact-scan 2.6s ease-in-out infinite;
 }
 @keyframes artifact-scan {
@@ -2102,7 +2114,7 @@
 .artifact-spark {
   width: 17px;
   height: 17px;
-  color: #9ec2ff;
+  color: #ffffff;
   animation: artifact-twinkle 1.6s ease-in-out infinite;
 }
 @keyframes artifact-twinkle {
@@ -2119,7 +2131,7 @@
 .artifact-loading-query {
   margin: 0;
   overflow: hidden;
-  color: #9fb2e8;
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2134,9 +2146,9 @@
   border-radius: 9px;
   background: linear-gradient(
     100deg,
-    rgba(148, 178, 255, 0.1) 30%,
-    rgba(196, 218, 255, 0.32) 50%,
-    rgba(148, 178, 255, 0.1) 70%
+    rgba(255, 255, 255, 0.12) 30%,
+    rgba(255, 255, 255, 0.38) 50%,
+    rgba(255, 255, 255, 0.12) 70%
   );
   background-size: 220% 100%;
   animation: artifact-sheen 1.5s linear infinite;
@@ -2159,7 +2171,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #8ea4de;
+  color: rgba(255, 255, 255, 0.75);
   font-size: 0.75rem;
   letter-spacing: 0.04em;
 }
@@ -2167,15 +2179,15 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #7ab0ff;
+  background: #ffffff;
   animation: artifact-pulse 1.4s ease-out infinite;
 }
 @keyframes artifact-pulse {
   from {
-    box-shadow: 0 0 0 0 rgba(122, 176, 255, 0.65);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.65);
   }
   to {
-    box-shadow: 0 0 0 9px rgba(122, 176, 255, 0);
+    box-shadow: 0 0 0 9px rgba(255, 255, 255, 0);
   }
 }
 /* Artifact view — a generated visual answer inside the expanded modal, with
@@ -2305,6 +2317,80 @@
 }
 .homeboard-app .is-colored .freshness-refresh {
   color: #ffffff;
+}
+/* Recent answers strip above the bottom bar. */
+.recent-artifacts {
+  padding: 8px 4px 0;
+}
+.recent-artifacts h3 {
+  font: 700 0.9rem/1.4 var(--font-display-local);
+  opacity: 0.75;
+  margin: 0 0 8px;
+}
+.recent-artifacts > div {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.recent-card {
+  position: relative;
+  flex: none;
+}
+.recent-card .recent-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 14px;
+}
+.recent-card .recent-open span {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.recent-card .recent-open small {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+.recent-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+.recent-card:hover .recent-delete,
+.recent-card:focus-within .recent-delete,
+.recent-delete:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.recent-delete:hover {
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+}
+.recent-delete svg {
+  width: 14px;
+  height: 14px;
 }
 .request-actions {
   display: flex;

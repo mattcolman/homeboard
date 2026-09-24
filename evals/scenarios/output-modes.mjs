@@ -1,11 +1,11 @@
 // Output decision layer: quick facts stay spoken, structured requests become
-// ephemeral visuals (show_visual), and "keep this" promotes the open visual
-// to a board widget via control_visual.
+// recent visual answers (show_visual), and "keep this" saves the open visual
+// to the artifacts gallery via control_visual save.
 export default {
   id: 'output-modes',
   title: 'Speech, visual and board outputs are chosen correctly',
   description:
-    'A quick fact is answered in speech only; a comparison fills the screen with a generated visual; "keep this" promotes it to a pinned board widget.',
+    'A quick fact is answered in speech only; a comparison fills the screen with a generated visual; "keep this" saves it to the artifacts gallery.',
   steps: [
     {
       action: 'board-load',
@@ -39,20 +39,19 @@ export default {
     {
       expect: [
         {
-          tool_called: { name: 'control_visual', args: { action: 'keep' } },
+          tool_called: { name: 'control_visual', args: { action: 'save' } },
         },
         {
-          name: 'kept-acknowledgement',
+          name: 'saved-acknowledgement',
           reply_max_words: 12,
         },
       ],
     },
     {
-      expect_state: [
+      expect_artifact: [
         {
-          kind: 'composition',
-          exists: true,
-          name: 'promoted-widget-on-board',
+          name: 'visual-saved-to-gallery',
+          saved: true,
         },
       ],
     },
