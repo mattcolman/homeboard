@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Unplug,
 } from 'lucide-react';
+import { ThemeToggle } from '../components/ThemeToggle';
 import './connections.css';
 
 type Status = {
@@ -129,6 +130,7 @@ export default function Connections() {
             <small>Private household sources</small>
           </div>
         </div>
+        <ThemeToggle />
       </header>
 
       <section className="connection-intro">

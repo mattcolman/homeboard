@@ -38,7 +38,7 @@
   place-items: center;
   border-radius: 14px;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
 }
 .connections-wordmark strong {
   display: block;
@@ -58,7 +58,7 @@
 }
 .connection-kicker {
   margin: 0;
-  color: #5d6b7a;
+  color: var(--muted-foreground);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -74,7 +74,7 @@
 .connection-intro > p:last-child {
   max-width: 680px;
   margin: 20px auto 0;
-  color: #5d6b7a;
+  color: var(--muted-foreground);
   font-size: 18px;
   line-height: 1.6;
 }
@@ -91,7 +91,7 @@
   border-radius: 24px;
   background: var(--card);
   padding: 28px;
-  box-shadow: 0 10px 38px #0f172212;
+  box-shadow: var(--shadow);
 }
 .connection-card-title {
   display: flex;
@@ -116,11 +116,12 @@
   flex: none;
   place-items: center;
   border-radius: 16px;
-  background: #e7edfe;
+  background: var(--accent-soft);
   color: var(--accent);
 }
 .connection-icon.connected {
-  background: #dff2e9;
+  background: var(--success-soft);
+  color: var(--success-strong);
 }
 .connection-icon svg {
   width: 24px;
@@ -129,7 +130,7 @@
   display: grid;
   gap: 8px;
   margin-top: 18px;
-  color: #3d4a5c;
+  color: var(--muted-foreground);
   font-size: 14px;
   font-weight: 700;
 }
@@ -138,7 +139,7 @@
   min-height: 52px;
   border: 1px solid var(--border);
   border-radius: 13px;
-  background: #fff;
+  background: var(--card);
   padding: 12px 14px;
   color: var(--foreground);
   font:
@@ -148,7 +149,7 @@
 .calendar-choice input:focus-visible,
 .connections-shell button:focus-visible,
 .connections-shell a:focus-visible {
-  outline: 3px solid #0430eb;
+  outline: 3px solid var(--ring);
   outline-offset: 3px;
 }
 .connections-shell button {
@@ -186,16 +187,16 @@
   margin-top: 24px;
   border: 0;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 .privacy-note {
   display: flex;
   gap: 11px;
   margin-top: 20px;
   border-radius: 14px;
-  background: #eef2f6;
+  background: var(--surface-hover);
   padding: 14px;
-  color: #3d4a5c;
+  color: var(--muted-foreground);
 }
 .privacy-note svg {
   width: 22px;
@@ -239,7 +240,7 @@
 }
 .calendar-picker legend {
   margin-bottom: 10px;
-  color: #3d4a5c;
+  color: var(--muted-foreground);
   font-size: 14px;
   font-weight: 700;
 }
@@ -248,7 +249,7 @@
   align-items: center;
   gap: 13px;
   min-height: 53px;
-  border-bottom: 1px solid #e6ebf1;
+  border-bottom: 1px solid var(--border);
   font-size: 17px;
 }
 .calendar-choice input {
@@ -275,12 +276,12 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #22a565;
-  box-shadow: 0 0 0 6px #22a56524;
+  background: var(--success);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--success) 15%, transparent);
 }
 .health-status.attention > i {
-  background: #dd7e33;
-  box-shadow: 0 0 0 6px #dd7e3324;
+  background: var(--warning);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--warning) 15%, transparent);
 }
 .health-status strong,
 .health-status small {
@@ -293,9 +294,9 @@
 }
 .connection-error {
   border-radius: 12px;
-  background: #fbe9e5;
+  background: var(--danger-soft);
   padding: 12px;
-  color: #b03828;
+  color: var(--danger-strong);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -308,21 +309,21 @@
   color: var(--accent);
 }
 .connection-danger {
-  color: #b03828;
+  color: var(--danger-strong);
 }
 .connections-shell > output {
   display: block;
   max-width: 980px;
   margin: 18px auto 0;
   border-radius: 13px;
-  background: #dff2e9;
+  background: var(--success-soft);
   padding: 13px 16px;
-  color: #177a52;
+  color: var(--success-strong);
   font-weight: 700;
 }
 .connections-shell > output.error {
-  background: #fbe9e5;
-  color: #b03828;
+  background: var(--danger-soft);
+  color: var(--danger-strong);
 }
 .connections-loading {
   display: grid;
