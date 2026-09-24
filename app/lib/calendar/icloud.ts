@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import ICAL from 'ical.js';
 import type { CalendarEvent, Snapshot } from '../widgets/model';
+import { localDateKey } from './local';
 
 const db = () => (env as unknown as { DB: D1Database }).DB;
 const APPLE_CALDAV = 'https://caldav.icloud.com/.well-known/caldav';
@@ -751,11 +752,18 @@ export async function calendarSnapshot(
     }
     row = (await connection(owner))!;
   }
+  // All-day ends_at values are nominal UTC midnights, not real instants,
+  // so they compare against the UTC date of the home "today".
+  const now = new Date();
   const result = await db()
     .prepare(
-      'SELECT id,calendar_id,calendar_name,calendar_color,title,starts_at,ends_at,all_day,location FROM calendar_events WHERE owner_id=? AND ends_at>? ORDER BY starts_at LIMIT 100',
+      'SELECT id,calendar_id,calendar_name,calendar_color,title,starts_at,ends_at,all_day,location FROM calendar_events WHERE owner_id=? AND ends_at > CASE WHEN all_day=1 THEN ? ELSE ? END ORDER BY starts_at LIMIT 100',
     )
-    .bind(owner, startOfHomeDay(new Date()).toISOString())
+    .bind(
+      owner,
+      `${localDateKey(now)}T00:00:00.000Z`,
+      startOfHomeDay(now).toISOString(),
+    )
     .all<{
       id: string;
       calendar_id: string;

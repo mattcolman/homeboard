@@ -47,6 +47,7 @@ for (const [name, file] of Object.entries(files)) {
     '../widgets/model': './model.mjs',
     '../weather': './weather.mjs',
     './calendar/local': './local.mjs',
+    './local': './local.mjs',
     './widgets/model': './model.mjs',
     '../recipes': './recipes.mjs',
     './recipes': './recipes.mjs',
