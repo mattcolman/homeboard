@@ -703,6 +703,9 @@
   min-height: 59px;
   border-bottom: 1px solid var(--hairline);
 }
+.calendar-group.is-future .calendar-event {
+  opacity: 0.58;
+}
 .calendar-event time {
   font-size: 13px;
   font-weight: 800;

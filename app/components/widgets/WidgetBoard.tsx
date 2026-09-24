@@ -558,9 +558,11 @@ function CalendarBody({
       month: '2-digit',
       day: '2-digit',
     }).format(new Date(value));
-  const referenceTime = Date.parse(widget.snapshot.fetchedAt),
-    today = dayKey(new Date(referenceTime).toISOString()),
-    tomorrow = dayKey(new Date(referenceTime + 86_400_000).toISOString());
+  // Day labels must reflect the real "now", not the snapshot's fetchedAt.
+  // oxlint-disable-next-line react-compiler/react-compiler
+  const now = Date.now(),
+    today = dayKey(new Date(now).toISOString()),
+    tomorrow = dayKey(new Date(now + 86_400_000).toISOString());
   const byCalendar = new Map<string, FamilyMember>();
   for (const member of members)
     for (const calendarId of member.calendarIds)
@@ -581,7 +583,10 @@ function CalendarBody({
         </div>
       ) : (
         events.map((event) => {
-          const key = dayKey(event.startsAt),
+          const startDay = dayKey(event.startsAt),
+            // Multi-day events still in progress belong to today, not the
+            // past day they started on.
+            key = startDay < today ? today : startDay,
             showDay = key !== previousDay;
           previousDay = key;
           const date = new Date(event.startsAt),
@@ -603,7 +608,10 @@ function CalendarBody({
                 }).format(date);
           const member = byCalendar.get(event.calendarId);
           return (
-            <div key={event.id}>
+            <div
+              key={event.id}
+              className={`calendar-group${key === today ? '' : ' is-future'}`}
+            >
               {showDay && <h3 className="calendar-day">{day}</h3>}
               <article className="calendar-event">
                 <time dateTime={event.startsAt}>{time}</time>
